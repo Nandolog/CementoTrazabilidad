@@ -1,0 +1,377 @@
+﻿@page "/turno/{TurnoId:int}/paradas"
+@layout MainLayout
+@attribute [Authorize]
+@using CementoTrazabilidad.Shared.DTOs
+@inject ITurnoService TurnoService
+@inject NavigationManager Navigation
+@inject ILogger<ParadasTurno> Logger
+
+<PageTitle>Paradas del Turno - CementoTrazabilidad</PageTitle>
+
+<div class="container-fluid">
+    <!-- Encabezado -->
+    <div class="row mb-4">
+        <div class="col">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1><i class="fas fa-pause-circle me-2"></i>Paradas del Turno</h1>
+                    <p class="text-muted">@turnoInfo</p>
+                </div>
+                <div>
+                    <button class="btn btn-secondary me-2" @onclick="Volver">
+                        <i class="fas fa-arrow-left me-2"></i>Volver
+                    </button>
+                    @if (puedeRegistrarParada)
+                    {
+                        <button class="btn btn-warning" @onclick="NuevaParada">
+                            <i class="fas fa-plus me-2"></i>Nueva Parada
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (cargando)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary"></div>
+            <p class="mt-2">Cargando paradas...</p>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(mensajeError))
+    {
+        <div class="alert alert-danger">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            @mensajeError
+        </div>
+    }
+    else
+    {
+        <!-- Resumen de Paradas -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card bg-warning bg-opacity-10 border-warning">
+                    <div class="card-body">
+                        <h6 class="text-warning">
+                            <i class="fas fa-pause-circle me-2"></i>Total Paradas
+                        </h6>
+                        <h3 class="mb-0">@paradas.Count</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-danger bg-opacity-10 border-danger">
+                    <div class="card-body">
+                        <h6 class="text-danger">
+                            <i class="fas fa-wrench me-2"></i>Mecánicas
+                        </h6>
+                        <h3 class="mb-0">@paradas.Count(p => p.Tipo == "Mecanica")</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-warning bg-opacity-10 border-warning">
+                    <div class="card-body">
+                        <h6 class="text-warning">
+                            <i class="fas fa-bolt me-2"></i>Eléctricas
+                        </h6>
+                        <h3 class="mb-0">@paradas.Count(p => p.Tipo == "Electrica")</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-info bg-opacity-10 border-info">
+                    <div class="card-body">
+                        <h6 class="text-info">
+                            <i class="fas fa-cog me-2"></i>Operativas
+                        </h6>
+                        <h3 class="mb-0">@paradas.Count(p => p.Tipo == "Operativa")</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lista de Paradas -->
+        @if (paradas.Any())
+        {
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list me-2"></i>Historial de Paradas
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Tipo</th>
+                                    <th>Descripción</th>
+                                    <th>Hora Inicio</th>
+                                    <th>Hora Fin</th>
+                                    <th class="text-center">Duración</th>
+                                    <th class="text-center">Impacto</th>
+                                    <th class="text-end">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var parada in paradas.OrderByDescending(p => p.FechaHoraInicio))
+                                {
+                                    var duracion = CalcularDuracion(parada);
+                                    var impacto = ObtenerImpacto(duracion);
+                                    
+                                    <tr>
+                                        <td>
+                                            <span class="badge @ObtenerClaseBadgeTipo(parada.Tipo)">
+                                                @parada.Tipo
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div class="text-truncate" style="max-width: 250px;" title="@parada.Descripcion">
+                                                @parada.Descripcion
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <small>@parada.FechaHoraInicio.ToString("dd/MM/yyyy HH:mm")</small>
+                                        </td>
+                                        <td>
+                                            @if (parada.FechaHoraFin.HasValue)
+                                            {
+                                                <small>@parada.FechaHoraFin.Value.ToString("dd/MM/yyyy HH:mm")</small>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-secondary">En curso</span>
+                                            }
+                                        </td>
+                                        <td class="text-center">
+                                            <strong>@duracion min</strong>
+                                            <br />
+                                            <small class="text-muted">(@(duracion / 60)h @(duracion % 60)m)</small>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-@impacto.Color">
+                                                @impacto.Texto
+                                            </span>
+                                        </td>
+                                        <td class="text-end">
+                                            <button class="btn btn-sm btn-info" @onclick="() => VerDetalle(parada)">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-pause-circle fa-4x text-muted mb-3"></i>
+                    <h4 class="text-muted">No hay paradas registradas</h4>
+                    <p class="text-muted">Este turno no tiene paradas registradas aún.</p>
+                    @if (puedeRegistrarParada)
+                    {
+                        <button class="btn btn-warning mt-3" @onclick="NuevaParada">
+                            <i class="fas fa-plus me-2"></i>Registrar Primera Parada
+                        </button>
+                    }
+                </div>
+            </div>
+        }
+    }
+</div>
+
+<!-- Modal Detalle de Parada -->
+@if (paradaSeleccionada != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-info-circle me-2"></i>Detalle de Parada
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CerrarDetalle"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Tipo de Parada</label>
+                            <p>
+                                <span class="badge @ObtenerClaseBadgeTipo(paradaSeleccionada.Tipo) fs-6">
+                                    @paradaSeleccionada.Tipo
+                                </span>
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Duración</label>
+                            <p>
+                                @{
+                                    var dur = CalcularDuracion(paradaSeleccionada);
+                                }
+                                <strong>@dur minutos</strong> (@(dur / 60)h @(dur % 60)m)
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Hora de Inicio</label>
+                            <p>@paradaSeleccionada.FechaHoraInicio.ToString("dd/MM/yyyy HH:mm:ss")</p>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Hora de Fin</label>
+                            <p>
+                                @if (paradaSeleccionada.FechaHoraFin.HasValue)
+                                {
+                                    @paradaSeleccionada.FechaHoraFin.Value.ToString("dd/MM/yyyy HH:mm:ss")
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">En curso</span>
+                                }
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Descripción / Motivo</label>
+                        <p class="border p-3 rounded bg-light">@paradaSeleccionada.Descripcion</p>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(paradaSeleccionada.AccionesCorrectivas))
+                    {
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Acciones Correctivas</label>
+                            <p class="border p-3 rounded bg-light">@paradaSeleccionada.AccionesCorrectivas</p>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CerrarDetalle">
+                        Cerrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int TurnoId { get; set; }
+
+    private List<ParadaDto> paradas = new();
+    private ParadaDto? paradaSeleccionada = null;
+    private bool cargando = true;
+    private string mensajeError = "";
+    private string turnoInfo = "";
+    private bool puedeRegistrarParada = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatos();
+    }
+
+    private async Task CargarDatos()
+    {
+        cargando = true;
+        mensajeError = "";
+
+        try
+        {
+            Console.WriteLine($"📋 Cargando paradas del turno {TurnoId}");
+
+            // Cargar información del turno
+            var turno = await TurnoService.GetTurnoByIdAsync(TurnoId);
+            if (turno != null)
+            {
+                turnoInfo = $"Turno {turno.TurnoNumero} - {turno.Fecha:dd/MM/yyyy} - {turno.Estado}";
+                puedeRegistrarParada = turno.Estado == "En Proceso";
+
+                // Cargar paradas
+                paradas = await TurnoService.GetParadasTurnoAsync(TurnoId);
+
+                Console.WriteLine($"✅ Paradas cargadas: {paradas.Count}");
+            }
+            else
+            {
+                mensajeError = "Turno no encontrado";
+                Console.WriteLine($"❌ Turno {TurnoId} no encontrado");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al cargar paradas");
+            Console.WriteLine($"❌ Error al cargar paradas: {ex.Message}");
+            mensajeError = $"Error al cargar las paradas: {ex.Message}";
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    private int CalcularDuracion(ParadaDto parada)
+    {
+        if (parada.FechaHoraFin.HasValue)
+        {
+            return (int)(parada.FechaHoraFin.Value - parada.FechaHoraInicio).TotalMinutes;
+        }
+        // Si no tiene fin, calcular desde inicio hasta ahora
+        return (int)(DateTime.Now - parada.FechaHoraInicio).TotalMinutes;
+    }
+
+    private int TiempoTotalParadas()
+    {
+        return paradas.Sum(p => CalcularDuracion(p));
+    }
+
+    private (string Color, String Texto) ObtenerImpacto(int duracionMinutos)
+    {
+        if (duracionMinutos > 120)
+            return ("danger", "Alto");
+        else if (duracionMinutos > 30)
+            return ("warning", "Medio");
+        else
+            return ("success", "Bajo");
+    }
+
+    private string ObtenerClaseBadgeTipo(string? tipo)
+    {
+        return tipo switch
+        {
+            "Mecanica" => "bg-danger",
+            "Electrica" => "bg-warning text-dark",
+            "Operativa" => "bg-info",
+            "Circunstancial" => "bg-secondary",
+            _ => "bg-primary"
+        };
+    }
+
+    private void VerDetalle(ParadaDto parada)
+    {
+        paradaSeleccionada = parada;
+        Console.WriteLine($"👁️ Viendo detalle de parada {parada.ParadaID}");
+    }
+
+    private void CerrarDetalle()
+    {
+        paradaSeleccionada = null;
+    }
+
+    private void NuevaParada()
+    {
+        Navigation.NavigateTo($"/turno/{TurnoId}/parada/nueva");
+    }
+
+    private void Volver()
+    {
+        Navigation.NavigateTo($"/turno/{TurnoId}");
+    }
+}

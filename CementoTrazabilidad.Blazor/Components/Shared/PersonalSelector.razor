@@ -1,0 +1,313 @@
+﻿@using CementoTrazabilidad.Blazor.Services
+@using CementoTrazabilidad.Shared.DTOs
+@using System.Linq
+@inject IPersonalService PersonalService
+
+<div class="personal-selector">
+    <div class="mb-3">
+        <label class="form-label fw-semibold">Seleccionar Personal para el Turno</label>
+        <div class="input-group">
+            <span class="input-group-text">
+                <i class="fas fa-search"></i>
+            </span>
+            <input type="text"
+                   class="form-control"
+                   placeholder="Buscar por nombre, legajo o rol..."
+                   @bind="searchTerm"
+                   @bind:event="oninput" />
+            @if (!string.IsNullOrEmpty(searchTerm))
+            {
+                <button class="btn btn-outline-secondary" type="button" @onclick="LimpiarBusqueda">
+                    <i class="fas fa-times"></i>
+                </button>
+            }
+        </div>
+    </div>
+
+    @if (cargando)
+    {
+        <div class="text-center py-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando personal...</span>
+            </div>
+            <p class="text-muted mt-2">Cargando lista de personal...</p>
+        </div>
+    }
+    else if (errorCarga)
+    {
+        <div class="alert alert-danger">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            Error al cargar el personal. Por favor, intente nuevamente.
+            <button class="btn btn-sm btn-outline-danger mt-2" @onclick="ReintentarCarga">
+                <i class="fas fa-redo me-1"></i> Reintentar
+            </button>
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover table-sm mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th scope="col" width="50">#</th>
+                        <th scope="col" width="100">Legajo</th>
+                        <th scope="col">Nombre</th>
+                        <th scope="col" width="120">Rol</th>
+                        <th scope="col" width="180">Rol en Turno</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (personalFiltrado.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="5" class="text-center py-3 text-muted">
+                                <i class="fas fa-users-slash me-2"></i>
+                                No se encontró personal @(!string.IsNullOrEmpty(searchTerm) ? "con los criterios de búsqueda" : "activo")
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var persona in personalFiltrado)
+                        {
+                            var estaSeleccionado = PersonalSeleccionado.Any(p => p.PersonalId == persona.PersonalID);
+                            var asignacion = PersonalSeleccionado.FirstOrDefault(p => p.PersonalId == persona.PersonalID);
+                            <tr class="@(estaSeleccionado ? "selected" : "")">
+                                <td class="text-center">
+                                    <div class="form-check">
+                                        <input type="checkbox"
+                                               class="form-check-input"
+                                               checked="@estaSeleccionado"
+                                               @onchange="@(e => ToggleSeleccion(persona, e.Value))"
+                                               id="check-@persona.PersonalID" />
+                                    </div>
+                                </td>
+                                <td>
+                                    <label for="check-@persona.PersonalID" class="form-check-label" style="cursor: pointer;">
+                                        <code>@persona.Legajo</code>
+                                    </label>
+                                </td>
+                                <td>
+                                    <label for="check-@persona.PersonalID" class="form-check-label" style="cursor: pointer;">
+                                        @persona.Nombre
+                                    </label>
+                                </td>
+                                <td>
+                                    <span class="badge @GetRolBadgeClass(persona.Rol)">
+                                        @persona.Rol
+                                    </span>
+                                </td>
+                                <td>
+                                    @if (estaSeleccionado && asignacion != null)
+                                    {
+                                        <select class="form-select form-select-sm"
+                                                value="@asignacion.RolTurno"
+                                                @onchange="@(e => ActualizarRolTurno(persona, e.Value?.ToString() ?? "Operario"))">
+                                            <option value="Operario">Operario</option>
+                                            <option value="Jefe de Turno">Jefe de Turno</option>
+                                            <option value="Supervisor">Supervisor</option>
+                                            <option value="Ayudante">Ayudante</option>
+                                            <option value="Mecánico">Mecánico</option>
+                                            <option value="Electricista">Electricista</option>
+                                            <option value="Control de Calidad">Control de Calidad</option>
+                                            <option value="Mantenimiento">Mantenimiento</option>
+                                        </select>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">-</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    @if (PersonalSeleccionado.Count > 0)
+    {
+        <div class="card mt-4 border-primary">
+            <div class="card-header bg-primary text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">
+                        <i class="fas fa-user-check me-2"></i>
+                        Personal Seleccionado (@PersonalSeleccionado.Count)
+                    </h6>
+                    <button class="btn btn-sm btn-light" @onclick="LimpiarSeleccion">
+                        <i class="fas fa-trash-alt me-1"></i> Limpiar todo
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush">
+                    @foreach (var asignacion in PersonalSeleccionado)
+                    {
+                        var personaInfo = personalActivo.FirstOrDefault(p => p.PersonalID == asignacion.PersonalId);
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="fw-semibold">@(personaInfo?.Nombre ?? "Desconocido")</div>
+                                <div class="small text-muted">
+                                    Legajo: <code>@(personaInfo?.Legajo ?? "N/A")</code> |
+                                    Rol Base: <span class="badge @GetRolBadgeClass(personaInfo?.Rol ?? "")">@personaInfo?.Rol</span>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center">
+                                <span class="badge bg-info me-3">
+                                    <i class="fas fa-user-tag me-1"></i> @asignacion.RolTurno
+                                </span>
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-danger"
+                                        @onclick="@(() => RemoverSeleccion(asignacion))"
+                                        title="Remover del turno">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </li>
+                    }
+                </ul>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<PersonalDto> personalActivo = new();
+    private List<PersonalDto> personalFiltrado = new();
+    private string searchTerm = string.Empty;
+    private bool cargando = true;
+    private bool errorCarga = false;
+
+    // ✅ CORRECCIÓN: Auto-property simple
+    [Parameter]
+    public List<AsignarPersonalDto> PersonalSeleccionado { get; set; } = new();
+
+    [Parameter]
+    public EventCallback<List<AsignarPersonalDto>> PersonalSeleccionadoChanged { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarPersonal();
+    }
+
+    private async Task CargarPersonal()
+    {
+        cargando = true;
+        errorCarga = false;
+        StateHasChanged();
+
+        try
+        {
+            personalActivo = await PersonalService.GetPersonalActivoAsync();
+            FiltrarPersonal();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar personal: {ex.Message}");
+            errorCarga = true;
+        }
+        finally
+        {
+            cargando = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ReintentarCarga()
+    {
+        await CargarPersonal();
+    }
+
+    private void FiltrarPersonal()
+    {
+        if (string.IsNullOrWhiteSpace(searchTerm))
+        {
+            personalFiltrado = personalActivo.ToList();
+        }
+        else
+        {
+            var termino = searchTerm.ToLower();
+            personalFiltrado = personalActivo
+                .Where(p => p.Nombre.ToLower().Contains(termino) ||
+                           p.Legajo.ToLower().Contains(termino) ||
+                           p.Rol.ToLower().Contains(termino))
+                .ToList();
+        }
+        StateHasChanged();
+    }
+
+    private void LimpiarBusqueda()
+    {
+        searchTerm = string.Empty;
+        FiltrarPersonal();
+    }
+
+    private void ToggleSeleccion(PersonalDto persona, object? isChecked)
+    {
+        var seleccionado = isChecked as bool? ?? false;
+
+        if (seleccionado)
+        {
+            var asignacion = new AsignarPersonalDto
+            {
+                PersonalId = persona.PersonalID,
+                RolTurno = persona.Rol == "Supervisor" || persona.Rol == "Jefe"
+                    ? persona.Rol
+                    : "Operario"
+            };
+
+            PersonalSeleccionado.Add(asignacion);
+        }
+        else
+        {
+            var asignacion = PersonalSeleccionado.FirstOrDefault(p => p.PersonalId == persona.PersonalID);
+            if (asignacion != null)
+            {
+                PersonalSeleccionado.Remove(asignacion);
+            }
+        }
+
+        // ✅ Notificar cambios al componente padre
+        PersonalSeleccionadoChanged.InvokeAsync(PersonalSeleccionado);
+        StateHasChanged();
+    }
+
+    private void ActualizarRolTurno(PersonalDto persona, string nuevoRolTurno)
+    {
+        var asignacion = PersonalSeleccionado.FirstOrDefault(p => p.PersonalId == persona.PersonalID);
+        if (asignacion != null)
+        {
+            asignacion.RolTurno = nuevoRolTurno;
+            PersonalSeleccionadoChanged.InvokeAsync(PersonalSeleccionado);
+            StateHasChanged();
+        }
+    }
+
+    private string GetRolBadgeClass(string? rol)
+    {
+        return rol?.ToLower() switch
+        {
+            "supervisor" or "jefe" => "bg-danger",
+            "operario" => "bg-primary",
+            "mecánico" or "electricista" or "mantenimiento" => "bg-warning",
+            "control de calidad" => "bg-success",
+            "ayudante" => "bg-secondary",
+            _ => "bg-dark"
+        };
+    }
+
+    private void RemoverSeleccion(AsignarPersonalDto asignacion)
+    {
+        PersonalSeleccionado.Remove(asignacion);
+        PersonalSeleccionadoChanged.InvokeAsync(PersonalSeleccionado);
+        StateHasChanged();
+    }
+
+    private void LimpiarSeleccion()
+    {
+        PersonalSeleccionado.Clear();
+        PersonalSeleccionadoChanged.InvokeAsync(PersonalSeleccionado);
+        StateHasChanged();
+    }
+}

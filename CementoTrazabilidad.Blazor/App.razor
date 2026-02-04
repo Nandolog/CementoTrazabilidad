@@ -1,0 +1,28 @@
+﻿<CascadingAuthenticationState>
+    <Router AppAssembly="@typeof(App).Assembly">
+        <Found Context="routeData">
+            @{
+                var layoutType = typeof(MainLayout);
+
+                // Usar LoginLayout para la página de login
+                if (routeData.PageType == typeof(Pages.Login))
+                {
+                    layoutType = typeof(LoginLayout);
+                }
+            }
+            <RouteView RouteData="@routeData" DefaultLayout="@layoutType" />
+            <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+        </Found>
+        <NotFound>
+            <LayoutView Layout="@typeof(MainLayout)">
+                <div class="container py-5">
+                    <div class="text-center">
+                        <h1 class="display-1 text-muted">404</h1>
+                        <p class="lead">Página no encontrada</p>
+                        <a href="/" class="btn btn-primary">Volver al inicio</a>
+                    </div>
+                </div>
+            </LayoutView>
+        </NotFound>
+    </Router>
+</CascadingAuthenticationState>

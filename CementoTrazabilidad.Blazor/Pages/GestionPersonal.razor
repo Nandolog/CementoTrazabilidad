@@ -1,0 +1,583 @@
+﻿@page "/personal"
+@using CementoTrazabilidad.Shared.DTOs
+@using CementoTrazabilidad.Blazor.Services
+@inject IPersonalService PersonalService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Administrador,Supervisor")]
+
+<PageTitle>Gestión de Personal</PageTitle>
+
+<div class="container-fluid py-3">
+    <div class="row mb-3">
+        <div class="col">
+            <h3><i class="fas fa-users me-2"></i>Gestión de Personal</h3>
+        </div>
+        <div class="col-auto">
+            <button class="btn btn-primary" @onclick="MostrarModalNuevo">
+                <i class="fas fa-plus me-2"></i>Nuevo Personal
+            </button>
+        </div>
+    </div>
+
+    @if (cargando)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Legajo</th>
+                                <th>Nombre</th>
+                                <th>Rol</th>
+                                <th>Estado</th>
+                                <th>Usuario Sistema</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var persona in listaPersonal)
+                            {
+                                <tr>
+                                    <td>@persona.Legajo</td>
+                                    <td>@persona.Nombre</td>
+                                    <td>@persona.Rol</td>
+                                    <td>
+                                        <span class="badge @(persona.Activo ? "bg-success" : "bg-secondary")">
+                                            @(persona.Activo ? "Activo" : "Inactivo")
+                                        </span>
+                                    </td>
+                                    <td>
+                                        @if (persona.TieneUsuario)
+                                        {
+                                            <span class="badge bg-info">
+                                                <i class="fas fa-user-check me-1"></i>Tiene Usuario
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-warning text-dark">
+                                                <i class="fas fa-user-times me-1"></i>Sin Usuario
+                                            </span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => Editar(persona)">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-sm @(persona.Activo ? "btn-outline-warning" : "btn-outline-success") me-1" 
+                                                @onclick="() => ToggleActivo(persona.PersonalID, persona.Activo)"
+                                                title="@(persona.Activo ? "Desactivar" : "Activar")">
+                                            <i class="fas @(persona.Activo ? "fa-user-slash" : "fa-user-check")"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-info me-1" 
+                                                @onclick="() => MostrarModalResetPassword(persona)"
+                                                disabled="@(!persona.TieneUsuario)"
+                                                title="Restablecer contraseña">
+                                            <i class="fas fa-key"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger" 
+                                                @onclick="() => Eliminar(persona.PersonalID)"
+                                                disabled="@persona.Activo">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        @if (!string.IsNullOrEmpty(mensajeError) && !mostrarModal)
+        {
+            <div class="alert alert-danger mt-3">
+                <i class="fas fa-exclamation-circle me-2"></i>@mensajeError
+            </div>
+        }
+    }
+</div>
+
+@if (mostrarModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        @(esNuevo ? "Nuevo Personal" : "Editar Personal")
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModal"></button>
+                </div>
+                <div class="modal-body">
+                    @if (esNuevo)
+                    {
+                        <EditForm Model="@personalForm" OnValidSubmit="GuardarPersonal">
+                            <DataAnnotationsValidator />
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Legajo <span class="text-danger">*</span></label>
+                                    <InputText @bind-Value="personalForm.Legajo" class="form-control" />
+                                    <ValidationMessage For="@(() => personalForm.Legajo)" />
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Nombre Completo <span class="text-danger">*</span></label>
+                                    <InputText @bind-Value="personalForm.Nombre" class="form-control" />
+                                    <ValidationMessage For="@(() => personalForm.Nombre)" />
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Rol en la Planta <span class="text-danger">*</span></label>
+                                <InputText @bind-Value="personalForm.Rol" class="form-control" 
+                                           placeholder="Ej: Operario, Supervisor, Técnico" />
+                                <ValidationMessage For="@(() => personalForm.Rol)" />
+                            </div>
+
+                            <hr class="my-4" />
+                            
+                            <div class="form-check mb-3">
+                                <InputCheckbox @bind-Value="personalForm.CrearUsuario" class="form-check-input" id="crearUsuarioCheck" />
+                                <label class="form-check-label" for="crearUsuarioCheck">
+                                    <strong>Crear usuario del sistema</strong>
+                                    <small class="d-block text-muted">Permitir acceso al sistema de trazabilidad</small>
+                                </label>
+                            </div>
+
+                            @if (personalForm.CrearUsuario)
+                            {
+                                <div class="card bg-light mb-3">
+                                    <div class="card-body">
+                                        <h6 class="card-title mb-3">
+                                            <i class="fas fa-user-shield me-2"></i>Configuración de Usuario
+                                        </h6>
+
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label">Contraseña <span class="text-danger">*</span></label>
+                                                <div class="input-group">
+                                                    <InputText type="@(mostrarPassword ? "text" : "password")" 
+                                                               @bind-Value="personalForm.Password" 
+                                                               class="form-control" 
+                                                               placeholder="Mínimo 6 caracteres" />
+                                                    <button class="btn btn-outline-secondary" type="button" 
+                                                            @onclick="() => mostrarPassword = !mostrarPassword">
+                                                        <i class="fas @(mostrarPassword ? "fa-eye-slash" : "fa-eye")"></i>
+                                                    </button>
+                                                </div>
+                                                <ValidationMessage For="@(() => personalForm.Password)" />
+                                                <small class="text-muted">Mínimo 6 caracteres</small>
+                                            </div>
+
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label">Rol del Sistema <span class="text-danger">*</span></label>
+                                                <InputSelect @bind-Value="personalForm.RolSistema" class="form-select">
+                                                    <option value="Operario">Operario</option>
+                                                    <option value="Supervisor">Supervisor</option>
+                                                    <option value="Administrador">Administrador</option>
+                                                </InputSelect>
+                                                <ValidationMessage For="@(() => personalForm.RolSistema)" />
+                                            </div>
+                                        </div>
+
+                                        <div class="alert alert-info mb-0">
+                                            <i class="fas fa-info-circle me-2"></i>
+                                            <small>
+                                                El usuario podrá iniciar sesión con:
+                                                <br />
+                                                <strong>Legajo:</strong> @personalForm.Legajo
+                                                <br />
+                                                <strong>Contraseña:</strong> La que definas aquí
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+
+                            @if (!string.IsNullOrEmpty(mensajeError))
+                            {
+                                <div class="alert alert-danger">
+                                    <i class="fas fa-exclamation-circle me-2"></i>@mensajeError
+                                </div>
+                            }
+
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" @onclick="CerrarModal">Cancelar</button>
+                                <button type="submit" class="btn btn-primary" disabled="@guardando">
+                                    @if (guardando)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-2"></span>
+                                    }
+                                    <i class="fas fa-save me-2"></i>Crear Personal
+                                </button>
+                            </div>
+                        </EditForm>
+                    }
+                    else
+                    {
+                        <EditForm Model="@personalEditForm" OnValidSubmit="ActualizarPersonal">
+                            <DataAnnotationsValidator />
+
+                            <div class="mb-3">
+                                <label class="form-label">Legajo</label>
+                                <InputText @bind-Value="personalEditForm.Legajo" class="form-control" disabled />
+                                <small class="text-muted">El legajo no se puede modificar</small>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Nombre Completo <span class="text-danger">*</span></label>
+                                <InputText @bind-Value="personalEditForm.Nombre" class="form-control" />
+                                <ValidationMessage For="@(() => personalEditForm.Nombre)" />
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Rol en la Planta <span class="text-danger">*</span></label>
+                                <InputText @bind-Value="personalEditForm.Rol" class="form-control" 
+                                           placeholder="Ej: Operario, Supervisor, Técnico" />
+                                <ValidationMessage For="@(() => personalEditForm.Rol)" />
+                            </div>
+
+                            <div class="form-check mb-3">
+                                <InputCheckbox @bind-Value="personalEditForm.Activo" class="form-check-input" id="activoCheck" />
+                                <label class="form-check-label" for="activoCheck">
+                                    <strong>Personal Activo</strong>
+                                </label>
+                            </div>
+
+                            @if (!string.IsNullOrEmpty(mensajeError))
+                            {
+                                <div class="alert alert-danger">
+                                    <i class="fas fa-exclamation-circle me-2"></i>@mensajeError
+                                </div>
+                            }
+
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" @onclick="CerrarModal">Cancelar</button>
+                                <button type="submit" class="btn btn-primary" disabled="@guardando">
+                                    @if (guardando)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-2"></span>
+                                    }
+                                    <i class="fas fa-save me-2"></i>Actualizar
+                                </button>
+                            </div>
+                        </EditForm>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (mostrarModalResetPassword)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title">
+                        <i class="fas fa-key me-2"></i>Restablecer Contraseña
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModalResetPassword"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>¿Estás seguro?</strong>
+                        <p class="mb-0 mt-2">Vas a restablecer la contraseña de:</p>
+                        <p class="mb-0"><strong>@personalSeleccionado?.Nombre</strong> (Legajo: @personalSeleccionado?.Legajo)</p>
+                    </div>
+
+                    <EditForm Model="@resetPasswordForm" OnValidSubmit="RestablecerPassword">
+                        <DataAnnotationsValidator />
+
+                        <div class="mb-3">
+                            <label class="form-label">Nueva Contraseña <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <InputText type="@(mostrarPasswordReset ? "text" : "password")" 
+                                           @bind-Value="resetPasswordForm.NuevaPassword" 
+                                           class="form-control" 
+                                           placeholder="Mínimo 6 caracteres" />
+                                <button class="btn btn-outline-secondary" type="button" 
+                                        @onclick="() => mostrarPasswordReset = !mostrarPasswordReset">
+                                    <i class="fas @(mostrarPasswordReset ? "fa-eye-slash" : "fa-eye")"></i>
+                                </button>
+                            </div>
+                            <ValidationMessage For="@(() => resetPasswordForm.NuevaPassword)" />
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(mensajeErrorReset))
+                        {
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-circle me-2"></i>@mensajeErrorReset
+                            </div>
+                        }
+
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" @onclick="CerrarModalResetPassword">
+                                Cancelar
+                            </button>
+                            <button type="submit" class="btn btn-warning" disabled="@guardandoReset">
+                                @if (guardandoReset)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2"></span>
+                                }
+                                <i class="fas fa-key me-2"></i>Restablecer Contraseña
+                            </button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<PersonalDto> listaPersonal = new();
+    private CreatePersonalDto personalForm = new();
+    private UpdatePersonalDto personalEditForm = new();
+    private ResetPasswordDto resetPasswordForm = new(); // ⬅️ NUEVO
+    private PersonalDto? personalSeleccionado = null; // ⬅️ NUEVO
+    private int personalEditId = 0;
+    private bool cargando = true;
+    private bool mostrarModal = false;
+    private bool mostrarModalResetPassword = false; // ⬅️ NUEVO
+    private bool esNuevo = true;
+    private bool guardando = false;
+    private bool guardandoReset = false; // ⬅️ NUEVO
+    private bool mostrarPassword = false;
+    private bool mostrarPasswordReset = false; // ⬅️ NUEVO
+    private string mensajeError = string.Empty;
+    private string mensajeErrorReset = string.Empty; // ⬅️ NUEVO
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarPersonal();
+    }
+
+    private async Task CargarPersonal()
+    {
+        cargando = true;
+        listaPersonal = await PersonalService.GetPersonalAsync();
+        cargando = false;
+        StateHasChanged();
+    }
+
+    private void MostrarModalNuevo()
+    {
+        esNuevo = true;
+        personalForm = new CreatePersonalDto 
+        { 
+            CrearUsuario = false,
+            RolSistema = "Operario"
+        };
+        mensajeError = string.Empty;
+        mostrarModal = true;
+    }
+
+    private void Editar(PersonalDto persona)
+    {
+        esNuevo = false;
+        personalEditId = persona.PersonalID;
+        personalEditForm = new UpdatePersonalDto
+        {
+            Legajo = persona.Legajo,
+            Nombre = persona.Nombre,
+            Rol = persona.Rol,
+            Activo = persona.Activo
+        };
+        mensajeError = string.Empty;
+        mostrarModal = true;
+    }
+
+    // ⬇️ NUEVO MÉTODO
+    private void MostrarModalResetPassword(PersonalDto persona)
+    {
+        personalSeleccionado = persona;
+        resetPasswordForm = new ResetPasswordDto();
+        mensajeErrorReset = string.Empty;
+        mostrarModalResetPassword = true;
+    }
+
+    // ⬇️ NUEVO MÉTODO
+    private void CerrarModalResetPassword()
+    {
+        mostrarModalResetPassword = false;
+        personalSeleccionado = null;
+        resetPasswordForm = new();
+        mensajeErrorReset = string.Empty;
+        mostrarPasswordReset = false;
+    }
+
+    // ⬇️ NUEVO MÉTODO
+    private async Task RestablecerPassword()
+    {
+        if (personalSeleccionado == null) return;
+
+        guardandoReset = true;
+        mensajeErrorReset = string.Empty;
+
+        try
+        {
+            var resultado = await PersonalService.ResetPasswordAsync(
+                personalSeleccionado.PersonalID, 
+                resetPasswordForm);
+
+            if (resultado.success)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", 
+                    $"Contraseña restablecida exitosamente para {personalSeleccionado.Nombre}");
+                CerrarModalResetPassword();
+            }
+            else
+            {
+                mensajeErrorReset = resultado.message;
+            }
+        }
+        catch (Exception ex)
+        {
+            mensajeErrorReset = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            guardandoReset = false;
+        }
+    }
+
+    private async Task GuardarPersonal()
+    {
+        guardando = true;
+        mensajeError = string.Empty;
+
+        try
+        {
+            if (personalForm.CrearUsuario && string.IsNullOrWhiteSpace(personalForm.Password))
+            {
+                mensajeError = "La contraseña es obligatoria si deseas crear un usuario";
+                guardando = false;
+                return;
+            }
+
+            var resultado = await PersonalService.CreatePersonalAsync(personalForm);
+
+            if (resultado)
+            {
+                await CargarPersonal();
+                CerrarModal();
+            }
+            else
+            {
+                mensajeError = "Error al crear el personal. Verifica que el legajo no exista.";
+            }
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            guardando = false;
+        }
+    }
+
+    private async Task ActualizarPersonal()
+    {
+        guardando = true;
+        mensajeError = string.Empty;
+
+        try
+        {
+            var resultado = await PersonalService.UpdatePersonalAsync(personalEditId, personalEditForm);
+
+            if (resultado)
+            {
+                await CargarPersonal();
+                CerrarModal();
+            }
+            else
+            {
+                mensajeError = "Error al actualizar el personal.";
+            }
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            guardando = false;
+        }
+    }
+
+    private async Task Eliminar(int id)
+    {
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", "¿Está seguro que desea eliminar este personal? Esta acción no se puede deshacer."))
+        {
+            return;
+        }
+
+        try
+        {
+            var resultado = await PersonalService.DeletePersonalAsync(id);
+            if (resultado.success)
+            {
+                await CargarPersonal();
+                mensajeError = string.Empty;
+            }
+            else
+            {
+                mensajeError = resultado.message;
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"Error al eliminar: {ex.Message}";
+            StateHasChanged();
+        }
+    }
+
+    private void CerrarModal()
+    {
+        mostrarModal = false;
+        personalForm = new();
+        personalEditForm = new();
+        personalEditId = 0;
+        mensajeError = string.Empty;
+    }
+
+    private async Task ToggleActivo(int personalId, bool estadoActual)
+    {
+        try
+        {
+            var resultado = await PersonalService.ToggleActivoAsync(personalId);
+
+            if (resultado.success)
+            {
+                await CargarPersonal();
+                mensajeError = string.Empty;
+            }
+            else
+            {
+                mensajeError = resultado.message;
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"Error: {ex.Message}";
+            StateHasChanged();
+        }
+    }
+}

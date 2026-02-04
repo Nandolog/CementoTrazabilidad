@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <title>CementoTrazabilidad - Sistema de Gestión de Producción</title>
+
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <!-- Estilos personalizados -->
+    <link href="css/app.css" rel="stylesheet" />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="favicon.png">
+
+    <style>
+        /* Ocultar el mensaje de error por defecto */
+        #blazor-error-ui {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 9999;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="loading-screen">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+            <p class="mt-3">Inicializando sistema...</p>
+        </div>
+    </div>
+
+    <div id="blazor-error-ui">
+        <div class="alert alert-danger">
+            <div class="container">
+                <h4>Error</h4>
+                <p>Ha ocurrido un error en la aplicación.</p>
+                <div class="mt-2">
+                    <a href="" class="btn btn-primary btn-sm">Recargar</a>
+                    <a class="btn btn-secondary btn-sm dismiss">Cerrar</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Chart.js para gráficos - DEBE IR ANTES DE chart-helpers.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+    <!-- UN SOLO ARCHIVO: charts.js -->
+    <script src="js/charts.js"></script>
+
+    <!-- Blazor Framework -->
+    <script src="_framework/blazor.webassembly.js"></script>
+
+    <script>
+        // ✅ CORRECCIÓN: Esperar a que Blazor esté completamente cargado
+        window.addEventListener('load', () => {
+            const errorUi = document.getElementById('blazor-error-ui');
+            const dismissButton = errorUi?.querySelector('.dismiss');
+
+            if (dismissButton) {
+                dismissButton.addEventListener('click', () => {
+                    errorUi.style.display = 'none';
+                });
+            }
+
+            // ✅ Verificar que las funciones estén disponibles
+            console.log('🔍 Verificando funciones JavaScript...');
+            console.log('limpiarGraficos:', typeof window.limpiarGraficos);
+            console.log('renderizarGraficoDistribucion:', typeof window.renderizarGraficoDistribucion);
+            console.log('renderizarGraficoParadasDetalladas:', typeof window.renderizarGraficoParadasDetalladas);
+            console.log('renderizarGraficoComparacion:', typeof window.renderizarGraficoComparacion);
+        });
+
+        // Función para descargar archivos
+        window.descargarArchivo = function (nombreArchivo, tipoContenido, datos) {
+            // Convertir el array de bytes a un Blob
+            const blob = new Blob([new Uint8Array(datos)], { type: tipoContenido });
+            
+            // Crear un enlace temporal
+            const link = document.createElement('a');
+            link.href = window.URL.createObjectURL(blob);
+            link.download = nombreArchivo;
+            
+            // Hacer clic automáticamente para descargar
+            document.body.appendChild(link);
+            link.click();
+            
+            // Limpiar
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(link.href);
+        };
+    </script>
+</body>
+</html>

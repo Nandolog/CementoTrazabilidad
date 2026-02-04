@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: cementotrazabilidad-db
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=CementoSeguro2024!
+      - MSSQL_PID=Developer
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    networks:
+      - cementotrazabilidad-network
+    healthcheck:
+      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "CementoSeguro2024!" -Q "SELECT 1" -N -C || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: CementoTrazabilidad.API/Dockerfile
+    container_name: cementotrazabilidad-api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=CementoTrazabilidadDB;User Id=sa;Password=CementoSeguro2024!;TrustServerCertificate=True;
+      - Jwt__Key=MiClaveSecretaSuperSegura32Caracteres!
+      - Jwt__Issuer=CementoTrazabilidad.API
+      - Jwt__Audience=CementoTrazabilidad.Client
+      - Jwt__ExpirationMinutes=480
+    ports:
+      - "5198:8080"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    networks:
+      - cementotrazabilidad-network
+    restart: unless-stopped
+
+  blazor:
+    build:
+      context: .
+      dockerfile: CementoTrazabilidad.Blazor/Dockerfile
+    container_name: cementotrazabilidad-blazor
+    ports:
+      - "5165:80"
+    depends_on:
+      - api
+    networks:
+      - cementotrazabilidad-network
+    restart: unless-stopped
+
+volumes:
+  sqlserver-data:
+
+networks:
+  cementotrazabilidad-network:
+    driver: bridge

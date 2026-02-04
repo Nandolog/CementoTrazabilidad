@@ -1,0 +1,630 @@
+﻿@page "/materiales"
+@layout MainLayout
+@attribute [Authorize]
+@using CementoTrazabilidad.Shared.DTOs
+@inject IMaterialService MaterialService
+@inject NavigationManager Navigation
+@inject ILogger<Materiales> Logger
+
+<PageTitle>Materiales - CementoTrazabilidad</PageTitle>
+
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <h1><i class="fas fa-boxes me-2"></i>Materiales</h1>
+            <p class="text-muted">Catálogo de materiales para producción</p>
+        </div>
+        <div class="col-auto">
+            <button class="btn btn-primary" @onclick="MostrarModalNuevoMaterial">
+                <i class="fas fa-plus me-2"></i>Nuevo Material
+            </button>
+        </div>
+    </div>
+
+    <!-- Barra de búsqueda y filtros -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                        <input type="text" class="form-control" placeholder="Buscar por código o descripción..."
+                               @bind="filtroBusqueda" @bind:event="oninput" />
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" @bind="filtroEstado">
+                        <option value="">Todos los estados</option>
+                        <option value="true">Activos</option>
+                        <option value="false">Inactivos</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button class="btn btn-outline-secondary w-100" @onclick="LimpiarFiltros">
+                        <i class="fas fa-eraser me-2"></i>Limpiar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estado de carga -->
+    @if (cargando)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+            <p class="mt-2">Cargando materiales...</p>
+        </div>
+    }
+    else if (materialesFiltrados.Count == 0)
+    {
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i>
+            @(materiales.Count == 0 ? "No hay materiales registrados." : "No se encontraron materiales con los filtros aplicados.")
+        </div>
+    }
+    else
+    {
+        <!-- Tabla de materiales -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-list me-2"></i>
+                    Materiales (@materialesFiltrados.Count de @materiales.Count)
+                </h5>
+                <div class="text-muted small">
+                    Mostrando página @(paginaActual) de @totalPaginas
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Código</th>
+                                <th>Descripción</th>
+                                <th class="text-end">Peso/Bolsa (kg)</th>
+                                <th>Estado</th>
+                                <th class="text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var material in materialesPagina)
+                            {
+                                <tr>
+                                    <td>
+                                        <strong>@material.Codigo</strong>
+                                        <div class="small text-muted">ID: @material.MaterialID</div>
+                                    </td>
+                                    <td>@material.Descripcion</td>
+                                    <td class="text-end">@material.PesoPorBolsa.ToString("N2")</td>
+                                    <td>
+                                        @if (material.Activo)
+                                        {
+                                            <span class="badge bg-success">Activo</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">Inactivo</span>
+                                        }
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-primary"
+                                                    @onclick="() => VerDetalle(material.MaterialID)"
+                                                    title="Ver detalle">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                            <button class="btn btn-outline-warning"
+                                                    @onclick="() => EditarMaterial(material)"
+                                                    title="Editar">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            @if (material.Activo)
+                                            {
+                                                <button class="btn btn-outline-danger"
+                                                        @onclick="() => ConfirmarDesactivar(material)"
+                                                        title="Desactivar">
+                                                    <i class="fas fa-ban"></i>
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <button class="btn btn-outline-success"
+                                                        @onclick="() => ActivarMaterial(material.MaterialID)"
+                                                        title="Activar">
+                                                    <i class="fas fa-check"></i>
+                                                </button>
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Paginación -->
+            @if (totalPaginas > 1)
+            {
+                <div class="card-footer">
+                    <nav aria-label="Paginación de materiales">
+                        <ul class="pagination justify-content-center mb-0">
+                            <li class="page-item @(paginaActual == 1 ? "disabled" : "")">
+                                <button class="page-link" @onclick="() => CambiarPagina(paginaActual - 1)">
+                                    <i class="fas fa-chevron-left"></i>
+                                </button>
+                            </li>
+
+                            @for (int i = 1; i <= totalPaginas; i++)
+                            {
+                                <li class="page-item @(i == paginaActual ? "active" : "")">
+                                    <button class="page-link" @onclick="() => CambiarPagina(i)">@i</button>
+                                </li>
+                            }
+
+                            <li class="page-item @(paginaActual == totalPaginas ? "disabled" : "")">
+                                <button class="page-link" @onclick="() => CambiarPagina(paginaActual + 1)">
+                                    <i class="fas fa-chevron-right"></i>
+                                </button>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<!-- Modal para nuevo/editar material -->
+@if (mostrarModalMaterial)
+{
+    <div class="modal show d-block" tabindex="-1" role="dialog" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas @(esEdicion ? "fa-edit" : "fa-plus") me-2"></i>
+                        @(esEdicion ? "Editar Material" : "Nuevo Material")
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModal" :disabled="guardando"></button>
+                </div>
+                <div class="modal-body">
+                    <EditForm Model="@materialActual" OnValidSubmit="@GuardarMaterial">
+                        <DataAnnotationsValidator />
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Código *</label>
+                                <InputText @bind-Value="materialActual.Codigo" class="form-control"
+                                           placeholder="Ej: CEM-001" maxlength="10" disabled="@esEdicion" />
+                                <ValidationMessage For="@(() => materialActual.Codigo)" />
+                                <div class="form-text">Máximo 10 caracteres @(esEdicion ? "(No editable)" : "")</div>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Descripción *</label>
+                                <InputText @bind-Value="materialActual.Descripcion" class="form-control"
+                                           placeholder="Ej: Cemento Portland Tipo I" maxlength="100" />
+                                <ValidationMessage For="@(() => materialActual.Descripcion)" />
+                                <div class="form-text">Máximo 100 caracteres</div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-12 mb-3">
+                                <label class="form-label">Peso por Bolsa (kg) *</label>
+                                <InputNumber @bind-Value="materialActual.PesoPorBolsa" class="form-control"
+                                             step="0.1" min="25" max="100" />
+                                <ValidationMessage For="@(() => materialActual.PesoPorBolsa)" />
+                                <div class="form-text">Entre 25 y 100 kg por bolsa</div>
+                            </div>
+                        </div>
+
+                        @if (esEdicion && materialEditar != null)
+                        {
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Editando material: <strong>@materialEditar.Codigo</strong> (ID: @materialEditar.MaterialID)
+                            </div>
+                        }
+
+                        <div class="mt-4">
+                            <button type="submit" class="btn btn-primary" disabled="@guardando">
+                                @if (guardando)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2"></span>
+                                    <span>Guardando...</span>
+                                }
+                                else
+                                {
+                                    <i class="fas @(esEdicion ? "fa-save" : "fa-plus") me-2"></i>
+                                    <span>@(esEdicion ? "Guardar Cambios" : "Crear Material")</span>
+                                }
+                            </button>
+                            <button type="button" class="btn btn-secondary ms-2" @onclick="CerrarModal" :disabled="guardando">
+                                Cancelar
+                            </button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal de confirmación -->
+@if (mostrarModalConfirmacion)
+{
+    <div class="modal show d-block" tabindex="-1" role="dialog" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title text-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Confirmar acción
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CancelarConfirmacion"></button>
+                </div>
+                <div class="modal-body">
+                    <p>¿Está seguro que desea @(accionConfirmacion == "desactivar" ? "desactivar" : "eliminar") el material <strong>@materialConfirmar?.Codigo</strong>?</p>
+                    @if (accionConfirmacion == "desactivar")
+                    {
+                        <div class="alert alert-warning">
+                            <i class="fas fa-info-circle me-2"></i>
+                            El material se marcará como inactivo y no podrá ser usado en nuevos registros de producción.
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-danger" @onclick="EjecutarAccionConfirmada" :disabled="procesandoAccion">
+                        @if (procesandoAccion)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        @(accionConfirmacion == "desactivar" ? "Desactivar" : "Eliminar")
+                    </button>
+                    <button type="button" class="btn btn-secondary" @onclick="CancelarConfirmacion" :disabled="procesandoAccion">
+                        Cancelar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    // Listas y estados
+    private List<MaterialDto> materiales = new();
+    private List<MaterialDto> materialesFiltrados = new();
+    private List<MaterialDto> materialesPagina = new();
+    private bool cargando = true;
+
+    // Filtros
+    private string filtroBusqueda = "";
+    private string? filtroEstado = "";
+
+    // Paginación
+    private int paginaActual = 1;
+    private int tamanoPagina = 10;
+    private int totalPaginas = 1;
+
+    // Modal material
+    private bool mostrarModalMaterial = false;
+    private bool esEdicion = false;
+    private bool guardando = false;
+    private CreateMaterialDto materialActual = new();
+    private MaterialDto? materialEditar = null;
+
+    // Modal confirmación
+    private bool mostrarModalConfirmacion = false;
+    private MaterialDto? materialConfirmar = null;
+    private string accionConfirmacion = "";
+    private bool procesandoAccion = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarMateriales();
+    }
+
+    private async Task CargarMateriales()
+    {
+        cargando = true;
+        StateHasChanged();
+
+        try
+        {
+            materiales = await MaterialService.GetMaterialesAsync();
+            AplicarFiltros();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al cargar materiales");
+            Console.WriteLine($"Error al cargar materiales: {ex.Message}");
+        }
+        finally
+        {
+            cargando = false;
+            StateHasChanged();
+        }
+    }
+
+    private void AplicarFiltros()
+    {
+        // Aplicar filtro de búsqueda
+        materialesFiltrados = materiales.Where(m =>
+            string.IsNullOrEmpty(filtroBusqueda) ||
+            m.Codigo.Contains(filtroBusqueda, StringComparison.OrdinalIgnoreCase) ||
+            m.Descripcion.Contains(filtroBusqueda, StringComparison.OrdinalIgnoreCase)
+        ).ToList();
+
+        // Aplicar filtro de estado
+        if (!string.IsNullOrEmpty(filtroEstado))
+        {
+            bool estadoBool = filtroEstado == "true";
+            materialesFiltrados = materialesFiltrados
+                .Where(m => m.Activo == estadoBool)
+                .ToList();
+        }
+
+        // Ordenar
+        materialesFiltrados = materialesFiltrados
+            .OrderBy(m => m.Codigo)
+            .ToList();
+
+        // Calcular paginación
+        totalPaginas = (int)Math.Ceiling((double)materialesFiltrados.Count / tamanoPagina);
+        paginaActual = Math.Min(Math.Max(1, paginaActual), totalPaginas);
+
+        // Obtener página actual
+        ActualizarPaginaActual();
+    }
+
+    private void ActualizarPaginaActual()
+    {
+        int inicio = (paginaActual - 1) * tamanoPagina;
+        materialesPagina = materialesFiltrados
+            .Skip(inicio)
+            .Take(tamanoPagina)
+            .ToList();
+    }
+
+    private void CambiarPagina(int nuevaPagina)
+    {
+        if (nuevaPagina >= 1 && nuevaPagina <= totalPaginas)
+        {
+            paginaActual = nuevaPagina;
+            ActualizarPaginaActual();
+        }
+    }
+
+    private void LimpiarFiltros()
+    {
+        filtroBusqueda = "";
+        filtroEstado = "";
+        AplicarFiltros();
+    }
+
+    // Filtros automáticos cuando cambian
+    private void OnFiltroChanged()
+    {
+        paginaActual = 1;
+        AplicarFiltros();
+    }
+
+    // Modal material
+    private void MostrarModalNuevoMaterial()
+    {
+        esEdicion = false;
+        materialActual = new CreateMaterialDto
+        {
+            PesoPorBolsa = 50.0m
+        };
+        materialEditar = null;
+        mostrarModalMaterial = true;
+    }
+
+    private void EditarMaterial(MaterialDto material)
+    {
+        esEdicion = true;
+        materialEditar = material;
+        materialActual = new CreateMaterialDto
+        {
+            Codigo = material.Codigo,
+            Descripcion = material.Descripcion,
+            PesoPorBolsa = material.PesoPorBolsa
+        };
+        mostrarModalMaterial = true;
+    }
+
+    private void CerrarModal()
+    {
+        if (!guardando)
+        {
+            mostrarModalMaterial = false;
+            materialEditar = null;
+        }
+    }
+
+    private async Task GuardarMaterial()
+    {
+        guardando = true;
+        StateHasChanged();
+
+        try
+        {
+            // Validación manual adicional
+            Console.WriteLine($"🔍 Validando material antes de guardar:");
+            Console.WriteLine($"   Codigo: '{materialActual.Codigo}' (length: {materialActual.Codigo?.Length ?? 0})");
+            Console.WriteLine($"   Descripcion: '{materialActual.Descripcion}' (length: {materialActual.Descripcion?.Length ?? 0})");
+            Console.WriteLine($"   PesoPorBolsa: {materialActual.PesoPorBolsa}");
+            Console.WriteLine($"   EsEdicion: {esEdicion}");
+
+            if (string.IsNullOrWhiteSpace(materialActual.Codigo))
+            {
+                Console.WriteLine("❌ ERROR: Código está vacío");
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(materialActual.Descripcion))
+            {
+                Console.WriteLine("❌ ERROR: Descripción está vacía");
+                return;
+            }
+
+            if (materialActual.PesoPorBolsa < 25 || materialActual.PesoPorBolsa > 100)
+            {
+                Console.WriteLine("❌ ERROR: Peso por bolsa fuera de rango");
+                return;
+            }
+
+            bool success;
+
+            if (esEdicion && materialEditar != null)
+            {
+                var updateDto = new UpdateMaterialDto
+                {
+                    Descripcion = materialActual.Descripcion,
+                    PesoPorBolsa = materialActual.PesoPorBolsa,
+                    Activo = materialEditar.Activo
+                };
+                success = await MaterialService.UpdateMaterialAsync(materialEditar.MaterialID, updateDto);
+                if (success)
+                {
+                    Console.WriteLine($"✅ Material {materialEditar.Codigo} actualizado correctamente");
+                }
+                else
+                {
+                    Console.WriteLine($"❌ Fallo al actualizar material {materialEditar.Codigo}");
+                }
+            }
+            else
+            {
+                success = await MaterialService.CreateMaterialAsync(materialActual);
+                if (success)
+                {
+                    Console.WriteLine($"✅ Material {materialActual.Codigo} creado correctamente");
+                }
+                else
+                {
+                    Console.WriteLine($"❌ Fallo al crear material {materialActual.Codigo}");
+                }
+            }
+
+            if (success)
+            {
+                mostrarModalMaterial = false;
+                await CargarMateriales();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al guardar material");
+            Console.WriteLine($"❌ Excepción al guardar material: {ex.Message}");
+            Console.WriteLine($"Stack: {ex.StackTrace}");
+        }
+        finally
+        {
+            guardando = false;
+            StateHasChanged();
+        }
+    }
+
+    // Confirmaciones
+    private void ConfirmarDesactivar(MaterialDto material)
+    {
+        materialConfirmar = material;
+        accionConfirmacion = "desactivar";
+        mostrarModalConfirmacion = true;
+    }
+
+    private void CancelarConfirmacion()
+    {
+        if (!procesandoAccion)
+        {
+            mostrarModalConfirmacion = false;
+            materialConfirmar = null;
+        }
+    }
+
+    private async Task EjecutarAccionConfirmada()
+    {
+        if (materialConfirmar == null) return;
+
+        procesandoAccion = true;
+        StateHasChanged();
+
+        try
+        {
+            bool success = false;
+
+            if (accionConfirmacion == "desactivar")
+            {
+                var updateDto = new UpdateMaterialDto
+                {
+                    Descripcion = materialConfirmar.Descripcion,
+                    PesoPorBolsa = materialConfirmar.PesoPorBolsa,
+                    Activo = false
+                };
+                success = await MaterialService.UpdateMaterialAsync(materialConfirmar.MaterialID, updateDto);
+                if (success)
+                {
+                    Console.WriteLine($"Material {materialConfirmar.Codigo} desactivado correctamente");
+                }
+            }
+
+            if (success)
+            {
+                await CargarMateriales();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, $"Error al {accionConfirmacion} material");
+            Console.WriteLine($"Error: {ex.Message}");
+        }
+        finally
+        {
+            procesandoAccion = false;
+            mostrarModalConfirmacion = false;
+            materialConfirmar = null;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ActivarMaterial(int materialId)
+    {
+        try
+        {
+            var material = materiales.FirstOrDefault(m => m.MaterialID == materialId);
+            if (material != null)
+            {
+                var updateDto = new UpdateMaterialDto
+                {
+                    Descripcion = material.Descripcion,
+                    PesoPorBolsa = material.PesoPorBolsa,
+                    Activo = true
+                };
+                var success = await MaterialService.UpdateMaterialAsync(materialId, updateDto);
+                if (success)
+                {
+                    Console.WriteLine($"Material {materialId} activado correctamente");
+                    await CargarMateriales();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al activar material");
+            Console.WriteLine($"Error al activar material: {ex.Message}");
+        }
+    }
+
+    private void VerDetalle(int materialId)
+    {
+        Navigation.NavigateTo($"/material/{materialId}");
+    }
+}

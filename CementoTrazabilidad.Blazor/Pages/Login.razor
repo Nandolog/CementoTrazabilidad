@@ -1,0 +1,116 @@
+﻿@page "/login"
+@inject IClientAuthService AuthService
+@inject NavigationManager Navigation
+@layout LoginLayout
+@using CementoTrazabilidad.Shared.DTOs
+
+<PageTitle>Login - CementoTrazabilidad</PageTitle>
+
+<div class="login-container">
+    <div class="login-card">
+        <div class="login-header">
+            <img src="/IconoTO.png" alt="Logo CementoTrazabilidad" class="login-logo mb-3" />
+            <h2>CementoTrazabilidad</h2>
+            <p>Sistema de Gestión de Producción</p>
+        </div>
+
+        <div class="login-body">
+            <h5 class="mb-4">Iniciar Sesión</h5>
+
+            <EditForm Model="@loginRequest" OnValidSubmit="@HandleLogin">
+                <div class="mb-3">
+                    <label class="form-label">Legajo</label>
+                    <InputText @bind-Value="loginRequest.Legajo" class="form-control" placeholder="OPER001" />
+                    <ValidationMessage For="@(() => loginRequest.Legajo)" />
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label">Contraseña</label>
+                    <InputText type="password" @bind-Value="loginRequest.Password" class="form-control" placeholder="operario123" />
+                    <ValidationMessage For="@(() => loginRequest.Password)" />
+                </div>
+
+                <div class="d-grid gap-2 mb-3">
+                    <button type="submit" class="btn btn-primary" disabled="@isLoading">
+                        @if (isLoading)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                            <span>Iniciando sesión...</span>
+                        }
+                        else
+                        {
+                            <i class="fas fa-sign-in-alt me-2"></i>
+                            <span>Iniciar Sesión</span>
+                        }
+                    </button>
+                </div>
+            </EditForm>
+
+            @if (!string.IsNullOrEmpty(message))
+            {
+                <div class="alert @(isError ? "alert-danger" : "alert-success") mt-3">
+                    <i class="fas @(isError ? "fa-exclamation-triangle" : "fa-check-circle") me-2"></i>
+                    @message
+                </div>
+            }
+
+            <hr class="my-3">
+
+            <div class="text-center small text-muted">
+                <div><strong>Usuario de prueba:</strong> OPER001 / operario123</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .login-logo {
+        width: 150px;
+        height: 150px;
+        object-fit: contain;
+        mix-blend-mode: multiply;
+        filter: contrast(1.2) brightness(0.95);
+        opacity: 0.9;
+    }
+</style>
+
+@code {
+    private LoginRequest loginRequest = new();
+    private string message = "";
+    private bool isError = false;
+    private bool isLoading = false;
+
+    private async Task HandleLogin()
+    {
+        isLoading = true;
+        message = "";
+        isError = false;
+
+        try
+        {
+            var response = await AuthService.LoginAsync(loginRequest);
+
+            if (response.Success)
+            {
+                message = "✅ ¡Login exitoso! Redirigiendo...";
+                await Task.Delay(1000);
+                Navigation.NavigateTo("/dashboard");
+            }
+            else
+            {
+                message = $"❌ {response.Message}";
+                isError = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            message = $"❌ Error: {ex.Message}";
+            isError = true;
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+}

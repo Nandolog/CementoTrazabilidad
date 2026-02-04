@@ -1,0 +1,306 @@
+﻿@page "/registro-produccion"
+@using CementoTrazabilidad.Shared.DTOs
+@using CementoTrazabilidad.Blazor.Services
+@inject ITurnoService TurnoService
+@inject ILoteService LoteService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Operario,Supervisor,Administrador")]
+
+<PageTitle>Registro de Producción</PageTitle>
+
+<div class="container-fluid py-3">
+    @if (turnoActivo == null)
+    {
+        <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong>No hay turno activo.</strong> Debes iniciar un turno antes de registrar producción.
+            <button class="btn btn-sm btn-primary ms-3" @onclick="@( () => Navigation.NavigateTo("/turnos") )">
+                Ir a Turnos
+            </button>
+        </div>
+    }
+    else
+    {
+        <div class="row mb-4">
+            <div class="col-md-8">
+                <div class="card border-primary">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-industry me-2"></i>Turno Actual: Turno #@turnoActivo.TurnoNumero
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p class="mb-2">
+                                    <strong>Inicio:</strong> @turnoActivo.FechaHoraInicio.ToString("dd/MM/yyyy HH:mm")
+                                </p>
+                                <p class="mb-2">
+                                    <strong>Personal:</strong> <span class="text-muted">No disponible</span>
+                                </p>
+                            </div>
+                            <div class="col-md-6">
+                                <p class="mb-2">
+                                    <strong>Total producido:</strong> 
+                                    <span class="badge bg-success fs-5">@totalBolsasHoy bolsas</span>
+                                </p>
+                                <p class="mb-2">
+                                    <strong>Último registro:</strong> @(ultimoLote?.FechaHoraFin?.ToString("HH:mm") ?? "Sin registros")
+                                </p>
+                            </div>
+                        </div> <!-- Faltaba cerrar este div -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="card border-info">
+                    <div class="card-header bg-info text-white">
+                        <h6 class="mb-0"><i class="fas fa-clock me-2"></i>Hora Actual</h6>
+                    </div>
+                    <div class="card-body text-center">
+                        <h2 class="display-4 mb-0">@horaActual.ToString("HH:mm:ss")</h2>
+                        <small class="text-muted">@horaActual.ToString("dd/MM/yyyy")</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-plus-circle me-2"></i>Registrar Nuevo Lote
+                </h5>
+            </div>
+            <div class="card-body">
+                <EditForm Model="@loteForm" OnValidSubmit="RegistrarLote">
+                    <DataAnnotationsValidator />
+
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Cantidad de Bolsas <span class="text-danger">*</span></label>
+                            <InputNumber @bind-Value="loteForm.CantidadBolsas" 
+                                       class="form-control form-control-lg" 
+                                       placeholder="Ej: 500" />
+                            <ValidationMessage For="@(() => loteForm.CantidadBolsas)" />
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Rango temporal estimado</label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="fas fa-clock"></i>
+                                </span>
+                                <input type="text" class="form-control" 
+                                       value="@rangoTemporal" 
+                                       disabled />
+                            </div>
+                            <small class="text-muted">
+                                Desde último registro hasta ahora
+                            </small>
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Observaciones</label>
+                            <InputText @bind-Value="loteForm.Observaciones" 
+                                     class="form-control" 
+                                     placeholder="Opcional" />
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Trazabilidad:</strong> Las bolsas impresas entre 
+                        <strong>@rangoInicio.ToString("HH:mm")</strong> y 
+                        <strong>@DateTime.Now.ToString("HH:mm")</strong> 
+                        quedarán asociadas a este lote.
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(mensajeError))
+                    {
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-circle me-2"></i>@mensajeError
+                        </div>
+                    }
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-success btn-lg" disabled="@guardando">
+                            @if (guardando)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                            }
+                            <i class="fas fa-save me-2"></i>Registrar Lote
+                        </button>
+
+                        <!-- Botones rápidos -->
+                        <button type="button" class="btn btn-outline-primary" 
+                                @onclick="() => loteForm.CantidadBolsas = 500">
+                            500
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" 
+                                @onclick="() => loteForm.CantidadBolsas = 1000">
+                            1000
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" 
+                                @onclick="() => loteForm.CantidadBolsas = 2000">
+                            2000
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+
+        <!-- Historial de lotes -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-history me-2"></i>Lotes Registrados Hoy
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Nº Lote</th>
+                                <th>Rango Temporal</th>
+                                <th>Cantidad</th>
+                                <th>Tipo</th>
+                                <th>Observaciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var lote in lotesHoy.OrderByDescending(l => l.FechaHoraFin))
+                            {
+                                <tr>
+                                    <td><strong>@lote.NumeroLote</strong></td>
+                                    <td>
+                                        <i class="fas fa-clock text-muted me-1"></i>
+                                        @lote.FechaHoraInicio.ToString("HH:mm") - @(lote.FechaHoraFin.HasValue ? lote.FechaHoraFin.Value.ToString("HH:mm") : "Sin fin")
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-success">@lote.CantidadBolsas bolsas</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge @(lote.TipoRegistro == "Manual" ? "bg-primary" : "bg-secondary")">
+                                            @lote.TipoRegistro
+                                        </span>
+                                    </td>
+                                    <td>@lote.Observaciones</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private TurnoProduccionDto? turnoActivo;
+    private CreateLoteProduccionDto loteForm = new();
+    private List<LoteProduccionDto> lotesHoy = new();
+    private LoteProduccionDto? ultimoLote;
+    private int totalBolsasHoy = 0;
+    private DateTime horaActual = DateTime.Now;
+    private DateTime rangoInicio = DateTime.Now;
+    private string rangoTemporal => $"{rangoInicio:HH:mm} - {DateTime.Now:HH:mm}";
+    private bool guardando = false;
+    private string mensajeError = string.Empty;
+    private System.Threading.Timer? timer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatos();
+
+        // Timer para actualizar hora
+        timer = new System.Threading.Timer(async _ =>
+        {
+            horaActual = DateTime.Now;
+            await InvokeAsync(StateHasChanged);
+        }, null, TimeSpan.Zero, TimeSpan.FromSeconds(1));
+    }
+
+    private async Task CargarDatos()
+    {
+        turnoActivo = await TurnoService.GetTurnoActivoAsync();
+        
+        Console.WriteLine($"🔄 CargarDatos - Turno activo: {turnoActivo?.TurnoProduccionID}");
+        
+        if (turnoActivo != null)
+        {
+            loteForm.TurnoID = turnoActivo.TurnoProduccionID;
+            
+            Console.WriteLine($"🔄 Cargando lotes del turno {turnoActivo.TurnoProduccionID}");
+            lotesHoy = await LoteService.GetLotesPorTurnoAsync(turnoActivo.TurnoProduccionID);
+            
+            Console.WriteLine($"✅ Lotes cargados: {lotesHoy.Count}");
+            
+            totalBolsasHoy = lotesHoy.Sum(l => l.CantidadBolsas);
+            ultimoLote = lotesHoy.OrderByDescending(l => l.FechaHoraFin).FirstOrDefault();
+            
+            // Calcular inicio del rango
+            rangoInicio = ultimoLote?.FechaHoraFin ?? turnoActivo.FechaHoraInicio;
+            
+            Console.WriteLine($"📊 Total bolsas: {totalBolsasHoy}, Último lote: {ultimoLote?.NumeroLote}");
+        }
+        else
+        {
+            Console.WriteLine("⚠️ No hay turno activo");
+        }
+        
+        StateHasChanged(); // ✅ Forzar actualización de la UI
+    }
+
+    private async Task RegistrarLote()
+    {
+        guardando = true;
+        mensajeError = string.Empty;
+
+        try
+        {
+            Console.WriteLine($"💾 Registrando lote: {loteForm.CantidadBolsas} bolsas para turno {loteForm.TurnoID}");
+            
+            var resultado = await LoteService.CrearLoteAsync(loteForm);
+
+            Console.WriteLine($"📥 Resultado: success={resultado.success}, message={resultado.message}");
+
+            if (resultado.success)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", 
+                    $"✓ Lote registrado: {loteForm.CantidadBolsas} bolsas");
+                
+                loteForm = new CreateLoteProduccionDto 
+                { 
+                    TurnoID = turnoActivo!.TurnoProduccionID 
+                };
+                
+                Console.WriteLine($"🔄 Recargando datos...");
+                await CargarDatos();
+                Console.WriteLine($"✅ Datos recargados. Total lotes: {lotesHoy.Count}");
+            }
+            else
+            {
+                mensajeError = resultado.message;
+                Console.WriteLine($"❌ Error al registrar: {resultado.message}");
+            }
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"Error: {ex.Message}";
+            Console.WriteLine($"❌ Excepción: {ex.Message}");
+        }
+        finally
+        {
+            guardando = false;
+            StateHasChanged(); // ✅ Forzar actualización de la UI
+        }
+    }
+
+    public void Dispose()
+    {
+        timer?.Dispose();
+    }
+}

@@ -1,0 +1,167 @@
+﻿@page "/turno/{TurnoId:int}/produccion/nueva"
+@layout MainLayout
+@attribute [Authorize(Roles = "Administrador,Supervisor,JefeTurno,Operario")]
+@using CementoTrazabilidad.Shared.DTOs
+@using Microsoft.AspNetCore.Components.Forms
+@inject ITurnoService TurnoService
+@inject IMaterialService MaterialService
+@inject ILoteService LoteService
+@inject NavigationManager Navigation
+@inject ILogger<RegistrarProducion> Logger
+
+<PageTitle>Registrar Producción - CementoTrazabilidad</PageTitle>
+
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h1><i class="fas fa-industry me-2"></i>Registrar Producción</h1>
+            <p class="text-muted">Turno @TurnoId - @turnoInfo</p>
+        </div>
+    </div>
+
+    @if (cargando)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary"></div>
+            <p class="mt-2">Cargando...</p>
+        </div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="card-body">
+                <EditForm Model="@produccionModel" OnValidSubmit="RegistrarProduccionAsync">
+                    <DataAnnotationsValidator />
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Lote</label>
+                            <InputText class="form-control" @bind-Value="produccionModel.NumeroLote" disabled />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Material</label>
+                            <InputSelect class="form-select" @bind-Value="produccionModel.MaterialID" disabled>
+                                <option value="@produccionModel.MaterialID">@produccionModel.MaterialNombre</option>
+                            </InputSelect>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Bolsas Elaboradas</label>
+                            <InputNumber class="form-control" @bind-Value="produccionModel.CantidadBolsas" disabled />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Bolsas Rotas</label>
+                            <InputNumber class="form-control" @bind-Value="produccionModel.BolsasRotas" min="0" />
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Horas de Marcha</label>
+                            <InputNumber class="form-control" @bind-Value="produccionModel.HorasMarcha" step="0.1" min="0" max="24" />
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Observaciones</label>
+                        <InputTextArea class="form-control" @bind-Value="produccionModel.Observaciones" rows="3" />
+                    </div>
+                    <div class="d-flex justify-content-end gap-2">
+                        <button type="button" class="btn btn-secondary" @onclick="Cancelar" disabled="@registrando">
+                            <i class="fas fa-times me-2"></i>Cancelar
+                        </button>
+                        <button type="submit" class="btn btn-primary" disabled="@registrando">
+                            @if (registrando)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                                <span>Registrando...</span>
+                            }
+                            else
+                            {
+                                <i class="fas fa-save me-2"></i>
+                                <span>Registrar Producción</span>
+                            }
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public int TurnoId { get; set; }
+    [Parameter] public int? LoteID { get; set; }
+
+    private ProduccionModel produccionModel = new();
+    private bool cargando = false;
+    private bool registrando = false;
+    private string turnoInfo = "";
+    private int turnoProduccionID = 0; // ✅ NUEVO: Guardar el ID real del turno
+
+    protected override async Task OnInitializedAsync()
+    {
+        cargando = true;
+        try
+        {
+            var turno = await TurnoService.GetTurnoByIdAsync(TurnoId);
+            if (turno != null)
+            {
+                turnoInfo = $"{turno.Fecha:dd/MM/yyyy} - Turno {turno.TurnoNumero}";
+                turnoProduccionID = turno.TurnoProduccionID; // ✅ Guardar el ID real
+            }
+
+            if (LoteID.HasValue)
+            {
+                var lote = await LoteService.GetLoteByIdAsync(LoteID.Value);
+                if (lote != null)
+                {
+                    produccionModel.NumeroLote = lote.NumeroLote;
+                    produccionModel.CantidadBolsas = lote.CantidadBolsas;
+                    produccionModel.MaterialID = lote.MaterialID;
+                    produccionModel.MaterialNombre = lote.MaterialNombre;
+                }
+            }
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    private async Task RegistrarProduccionAsync()
+    {
+        registrando = true;
+        try
+        {
+            var dto = new CreateLoteProduccionDto
+            {
+                TurnoID = turnoProduccionID > 0 ? turnoProduccionID : TurnoId, // ✅ Usar el ID correcto
+                LoteID = produccionModel.LoteID,
+                NumeroLote = produccionModel.NumeroLote,
+                MaterialID = produccionModel.MaterialID,
+                CantidadBolsas = produccionModel.CantidadBolsas,
+                BolsasRotas = produccionModel.BolsasRotas,
+                HorasMarcha = produccionModel.HorasMarcha,
+                Observaciones = produccionModel.Observaciones
+            };
+            
+            Console.WriteLine($"📤 Enviando lote con TurnoID: {dto.TurnoID}"); // ✅ Log para debugging
+            
+            await LoteService.CrearLoteAsync(dto);
+            Navigation.NavigateTo($"/turno/{TurnoId}");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al registrar la producción");
+        }
+        finally
+        {
+            registrando = false;
+        }
+    }
+
+    private void Cancelar()
+    {
+        Navigation.NavigateTo($"/turno/{TurnoId}");
+    }
+}

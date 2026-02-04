@@ -1,0 +1,336 @@
+﻿@page "/turno/{TurnoId:int}/parada/nueva"
+@layout MainLayout
+@attribute [Authorize(Roles = "Administrador,Supervisor,JefeTurno,Operario")]
+@using CementoTrazabilidad.Shared.DTOs
+@using Microsoft.AspNetCore.Components.Forms
+@inject ITurnoService TurnoService
+@inject NavigationManager Navigation
+@inject ILogger<RegistrarParada> Logger
+
+<PageTitle>Registrar Parada - CementoTrazabilidad</PageTitle>
+
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h1><i class="fas fa-pause me-2"></i>Registrar Parada</h1>
+            <p class="text-muted">Turno @TurnoId - @turnoInfo</p>
+        </div>
+    </div>
+
+    @if (cargando)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary"></div>
+            <p class="mt-2">Cargando...</p>
+        </div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="card-body">
+                <EditForm Model="@paradaDto" OnValidSubmit="@RegistrarParadaAsync" OnInvalidSubmit="@MostrarErroresValidacion">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+
+                    <!-- ✅ SECCIÓN 1: TIPO Y DURACIÓN -->
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Tipo de Parada *</label>
+                            <InputSelect class="form-select" @bind-Value="paradaDto.Tipo" disabled="@registrando">
+                                <option value="">Seleccione un tipo...</option>
+                                <option value="Circunstancial">🌐 Circunstancial</option>
+                                <option value="Operativa">⚙️ Operativa</option>
+                                <option value="Mecanica">🔧 Mecánica</option>
+                                <option value="Electrica">⚡ Eléctrica</option>
+                                <option value="Stock Lleno">📦 Stock Lleno</option>
+                            </InputSelect>
+                            <ValidationMessage For="@(() => paradaDto.Tipo)" />
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Duración (minutos) *</label>
+                            <InputNumber class="form-control" @bind-Value="duracionMinutos"
+                                   min="1" max="480" disabled="@registrando" />
+                            <small class="form-text text-muted">Máximo 8 horas (480 minutos)</small>
+                        </div>
+                    </div>
+
+                    <!-- ✅ SECCIÓN 2: FECHAS -->
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Hora de Inicio *</label>
+                            <InputDate Type="InputDateType.DateTimeLocal" class="form-control" @bind-Value="paradaDto.FechaHoraInicio" 
+                                   disabled="@registrando" @bind-Value:after="CalcularHoraFin" />
+                            <ValidationMessage For="@(() => paradaDto.FechaHoraInicio)" />
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Hora de Fin (Calculada)</label>
+                            @if (paradaDto.FechaHoraFin.HasValue)
+                            {
+                                <input type="text" class="form-control" value="@paradaDto.FechaHoraFin.Value.ToString("dd/MM/yyyy HH:mm")" readonly />
+                            }
+                            else
+                            {
+                                <input type="text" class="form-control" value="-" readonly />
+                            }
+                        </div>
+                    </div>
+
+                    <!-- ✅ SECCIÓN 3: MOTIVO Y DESCRIPCIÓN -->
+                    <div class="mb-3">
+                        <label class="form-label">Motivo *</label>
+                        <InputText class="form-control" @bind-Value="paradaDto.Motivo"
+                              disabled="@registrando"
+                              placeholder="Ej: Falla en motor principal, Corte de energía, etc." />
+                        <ValidationMessage For="@(() => paradaDto.Motivo)" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Descripción Detallada *</label>
+                        <InputTextArea class="form-control" @bind-Value="paradaDto.Descripcion"
+                                  rows="3" disabled="@registrando"
+                                  placeholder="Describa en detalle lo ocurrido..." />
+                        <ValidationMessage For="@(() => paradaDto.Descripcion)" />
+                    </div>
+
+                    <!-- ✅ SECCIÓN 4: ACCIONES CORRECTIVAS -->
+                    <div class="mb-3">
+                        <label class="form-label">Acciones Correctivas</label>
+                        <InputTextArea class="form-control" @bind-Value="paradaDto.AccionesCorrectivas"
+                                  rows="3" disabled="@registrando"
+                                  placeholder="Acciones tomadas para resolver el problema..." />
+                        <small class="form-text text-muted">Opcional - Se puede completar después</small>
+                    </div>
+
+                    <!-- ✅ RESUMEN MEJORADO -->
+                    <div class="alert @GetResumenClase() border">
+                        <h6><i class="fas fa-chart-line me-2"></i>Resumen de Parada</h6>
+                        <div class="row">
+                            <div class="col-md-3">
+                                <strong>Tipo:</strong><br>
+                                <span class="badge bg-secondary">@ObtenerNombreTipoParada(paradaDto.Tipo)</span>
+                            </div>
+                            <div class="col-md-3">
+                                <strong>Duración:</strong><br>
+                                @if (duracionMinutos > 0)
+                                {
+                                    <span>@($"{duracionMinutos} min ({duracionMinutos / 60}h {duracionMinutos % 60}m)")</span>
+                                }
+                                else
+                                {
+                                    <span>-</span>
+                                }
+                            </div>
+                            <div class="col-md-3">
+                                <strong>Impacto Productivo:</strong><br>
+                                <span class="badge @GetImpactoBadgeClass()">
+                                    @ObtenerImpacto()
+                                </span>
+                            </div>
+                            <div class="col-md-3">
+                                <strong>Periodo:</strong><br>
+                                @if (paradaDto.FechaHoraInicio != default && paradaDto.FechaHoraFin.HasValue)
+                                {
+                                    <small>
+                                        @paradaDto.FechaHoraInicio.ToString("HH:mm") - @paradaDto.FechaHoraFin.Value.ToString("HH:mm")
+                                    </small>
+                                }
+                                else
+                                {
+                                    <span>-</span>
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(mensajeError))
+                    {
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            @mensajeError
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(mensajeExito))
+                    {
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle me-2"></i>
+                            @mensajeExito
+                        </div>
+                    }
+
+                    <div class="d-flex justify-content-end gap-2">
+                        <button type="button" class="btn btn-secondary" @onclick="Cancelar" disabled="@registrando">
+                            <i class="fas fa-times me-2"></i>Cancelar
+                        </button>
+                        <button type="submit" class="btn btn-warning" disabled="@registrando">
+                            @if (registrando)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                                <span>Registrando...</span>
+                            }
+                            else
+                            {
+                                <i class="fas fa-save me-2"></i>
+                                <span>Registrar Parada</span>
+                            }
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public int TurnoId { get; set; }
+
+    private CreateParadaDto paradaDto = new();
+    private int duracionMinutosBacking = 15;
+    private int duracionMinutos
+    {
+        get => duracionMinutosBacking;
+        set
+        {
+            duracionMinutosBacking = value;
+            CalcularHoraFin();
+        }
+    }
+    private bool cargando = false;
+    private bool registrando = false;
+    private string mensajeError = "";
+    private string mensajeExito = "";
+    private string turnoInfo = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        cargando = true;
+
+        try
+        {
+            var turno = await TurnoService.GetTurnoByIdAsync(TurnoId);
+            if (turno != null)
+            {
+                turnoInfo = $"{turno.Fecha:dd/MM/yyyy} - Turno {turno.TurnoNumero}";
+                paradaDto.TurnoProduccionID = TurnoId;
+                paradaDto.FechaHoraInicio = DateTime.Now;
+                CalcularHoraFin();
+            }
+            else
+            {
+                mensajeError = "Turno no encontrado";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al cargar turno");
+            mensajeError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    private void CalcularHoraFin()
+    {
+        if (duracionMinutos > 0 && paradaDto.FechaHoraInicio != default)
+        {
+            paradaDto.FechaHoraFin = paradaDto.FechaHoraInicio.AddMinutes(duracionMinutos);
+        }
+        else
+        {
+            paradaDto.FechaHoraFin = null;
+        }
+        StateHasChanged();
+    }
+
+    private string ObtenerNombreTipoParada(string? tipo)
+    {
+        return tipo switch
+        {
+            "Mecanica" => "Mecánica",
+            "Electrica" => "Eléctrica",
+            _ => tipo ?? "-"
+        };
+    }
+
+    private string ObtenerImpacto()
+    {
+        return duracionMinutos switch
+        {
+            > 120 => "Alto",
+            > 30 => "Medio",
+            _ => "Bajo"
+        };
+    }
+
+    private string GetImpactoBadgeClass()
+    {
+        return ObtenerImpacto() switch
+        {
+            "Alto" => "bg-danger",
+            "Medio" => "bg-warning",
+            "Bajo" => "bg-success",
+            _ => "bg-secondary"
+        };
+    }
+
+    private string GetResumenClase()
+    {
+        return ObtenerImpacto() switch
+        {
+            "Alto" => "alert-danger",
+            "Medio" => "alert-warning",
+            _ => "alert-info"
+        };
+    }
+
+    private void MostrarErroresValidacion()
+    {
+        mensajeError = "Por favor, complete todos los campos requeridos marcados con *.";
+        StateHasChanged();
+    }
+
+    private async Task RegistrarParadaAsync()
+    {
+        registrando = true;
+        mensajeError = "";
+        mensajeExito = "";
+        StateHasChanged();
+
+        try
+        {
+            CalcularHoraFin();
+
+            var success = await TurnoService.RegistrarParadaAsync(paradaDto);
+
+            if (success)
+            {
+                mensajeExito = "Parada registrada exitosamente";
+                await Task.Delay(2000);
+                Navigation.NavigateTo($"/turno/{TurnoId}");
+            }
+            else
+            {
+                mensajeError = "Error al registrar la parada. Por favor, intente nuevamente.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al registrar parada");
+            mensajeError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            registrando = false;
+            StateHasChanged();
+        }
+    }
+
+    private void Cancelar()
+    {
+        Navigation.NavigateTo($"/turno/{TurnoId}");
+    }
+}

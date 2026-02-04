@@ -1,0 +1,180 @@
+/* Estilos generales */
+.login-container {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.login-card {
+    background: white;
+    border-radius: 10px;
+    width: 100%;
+    max-width: 400px;
+    overflow: hidden;
+}
+
+.login-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 2rem;
+    text-align: center;
+}
+
+.login-body {
+    padding: 2rem;
+}
+
+.login-footer {
+    padding: 1rem;
+    text-align: center;
+    background: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+}
+
+/* KPIs */
+.kpi-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    color: white;
+}
+
+    .kpi-icon i {
+        font-size: 1.5rem;
+    }
+
+.kpi-value {
+    font-size: 2rem;
+    font-weight: bold;
+    margin: 1rem 0 0.5rem 0;
+}
+
+/* Avatar */
+.avatar-circle {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+}
+
+/* Tablas */
+.table th {
+    border-top: none;
+    font-weight: 600;
+    color: #495057;
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+/* Tarjetas */
+.card {
+    border: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+    .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+
+.card-header {
+    border-bottom: 1px solid rgba(0,0,0,0.125);
+    background-color: rgba(0,0,0,0.03);
+}
+
+/* Botones */
+.btn {
+    border-radius: 6px;
+    padding: 0.5rem 1rem;
+    font-weight: 500;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+}
+
+/* Badges */
+.badge {
+    font-weight: 500;
+    padding: 0.4em 0.8em;
+}
+
+/* Formularios */
+.form-control, .form-select {
+    border-radius: 6px;
+    border: 1px solid #ced4da;
+    padding: 0.5rem 0.75rem;
+}
+
+    .form-control:focus, .form-select:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    }
+
+/* Spacing */
+.mb-6 {
+    margin-bottom: 4rem !important;
+}
+
+.py-6 {
+    padding-top: 4rem !important;
+    padding-bottom: 4rem !important;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .login-card {
+        margin: 1rem;
+    }
+
+    .kpi-value {
+        font-size: 1.5rem;
+    }
+    /* Estilos para el selector de personal */
+    .personal-selector {
+        max-height: 500px;
+        overflow-y: auto;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        padding: 1rem;
+        background-color: #fff;
+    }
+
+        .personal-selector table {
+            margin-bottom: 0;
+            font-size: 0.875rem;
+        }
+
+        .personal-selector .table-hover tbody tr:hover {
+            background-color: rgba(13, 110, 253, 0.05);
+        }
+
+        .personal-selector .form-select-sm {
+            width: 160px;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        .personal-selector .badge {
+            font-size: 0.75rem;
+        }
+
+        /* Estilo para filas seleccionadas */
+        .personal-selector tr.selected {
+            background-color: rgba(13, 110, 253, 0.1);
+        }
+}

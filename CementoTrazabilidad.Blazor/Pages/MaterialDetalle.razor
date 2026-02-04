@@ -1,0 +1,191 @@
+﻿@page "/material/{MaterialId:int}"
+@layout MainLayout
+@attribute [Authorize]
+@using CementoTrazabilidad.Shared.DTOs
+@inject IMaterialService MaterialService
+@inject NavigationManager Navigation
+@inject ILogger<MaterialDetalle> Logger
+
+<PageTitle>Detalle Material - CementoTrazabilidad</PageTitle>
+
+<div class="container-fluid">
+    @if (cargando)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+            <p class="mt-2">Cargando detalle del material...</p>
+        </div>
+    }
+    else if (material == null)
+    {
+        <div class="alert alert-danger">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            Material no encontrado.
+        </div>
+        <button class="btn btn-secondary" @onclick="Volver">
+            <i class="fas fa-arrow-left me-2"></i>Volver a Materiales
+        </button>
+    }
+    else
+    {
+        <!-- Header -->
+        <div class="row mb-4">
+            <div class="col">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item">
+                            <a href="/materiales" style="cursor: pointer;">Materiales</a>
+                        </li>
+                        <li class="breadcrumb-item active">@material.Codigo</li>
+                    </ol>
+                </nav>
+                <h1>
+                    <i class="fas fa-box me-2"></i>
+                    @material.Codigo - @material.Descripcion
+                </h1>
+            </div>
+            <div class="col-auto">
+                <button class="btn btn-secondary" @onclick="Volver">
+                    <i class="fas fa-arrow-left me-2"></i>Volver
+                </button>
+            </div>
+        </div>
+
+        <!-- Información del Material -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <i class="fas fa-qrcode fa-3x text-primary mb-3"></i>
+                        <h5 class="card-title">Código</h5>
+                        <h3 class="text-primary">@material.Codigo</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <i class="fas fa-weight fa-3x text-success mb-3"></i>
+                        <h5 class="card-title">Peso/Bolsa</h5>
+                        <h3 class="text-success">@material.PesoPorBolsa.ToString("N2") kg</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <i class="fas fa-cube fa-3x text-info mb-3"></i>
+                        <h5 class="card-title">Densidad</h5>
+                        <h3 class="text-info">@material.DensidadKGm3.ToString("N2") kg/m³</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <i class="fas @(material.Activo ? "fa-check-circle" : "fa-times-circle") fa-3x @(material.Activo ? "text-success" : "text-secondary") mb-3"></i>
+                        <h5 class="card-title">Estado</h5>
+                        <h3>
+                            <span class="badge @(material.Activo ? "bg-success" : "bg-secondary")">
+                                @(material.Activo ? "Activo" : "Inactivo")
+                            </span>
+                        </h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Descripción -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Información General</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>ID Material:</strong> @material.MaterialID</p>
+                        <p><strong>Descripción:</strong> @material.Descripcion</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Peso por Bolsa:</strong> @material.PesoPorBolsa.ToString("N2") kg</p>
+                        <p><strong>Densidad:</strong> @material.DensidadKGm3.ToString("N2") kg/m³</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Placeholder para futuras funcionalidades -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Estadísticas de Producción</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info mb-0">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Las estadísticas de producción estarán disponibles próximamente.
+                    <br><small>Aquí se mostrará el historial de producción, bolsas elaboradas, roturas y eficiencia.</small>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int MaterialId { get; set; }
+
+    private MaterialDto? material;
+    private bool cargando = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarMaterial();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (MaterialId > 0)
+        {
+            await CargarMaterial();
+        }
+    }
+
+    private async Task CargarMaterial()
+    {
+        cargando = true;
+        StateHasChanged();
+
+        try
+        {
+            material = await MaterialService.GetMaterialAsync(MaterialId);
+            
+            if (material == null)
+            {
+                Logger.LogWarning($"Material con ID {MaterialId} no encontrado");
+                Console.WriteLine($"⚠️ Material {MaterialId} no encontrado");
+            }
+            else
+            {
+                Console.WriteLine($"✅ Material {material.Codigo} cargado correctamente");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, $"Error al cargar material {MaterialId}");
+            Console.WriteLine($"❌ Error al cargar material: {ex.Message}");
+            material = null;
+        }
+        finally
+        {
+            cargando = false;
+            StateHasChanged();
+        }
+    }
+
+    private void Volver()
+    {
+        Navigation.NavigateTo("/materiales");
+    }
+}

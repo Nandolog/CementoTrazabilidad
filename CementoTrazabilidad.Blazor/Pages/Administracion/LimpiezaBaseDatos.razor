@@ -1,0 +1,452 @@
+﻿@page "/administracion/limpieza-bd"
+@layout MainLayout
+@attribute [Authorize(Roles = "Administrador")]
+@using System.Net.Http.Json
+@inject HttpClient Http
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+
+<PageTitle>Limpieza de Base de Datos - Administración</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h2><i class="fas fa-database me-2"></i>Mantenimiento de Base de Datos</h2>
+            <p class="text-muted">Herramientas de administración y limpieza de datos</p>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(mensajeAlerta))
+    {
+        <div class="alert @alertClass alert-dismissible fade show" role="alert">
+            <i class="fas @alertIcon me-2"></i>
+            @mensajeAlerta
+            <button type="button" class="btn-close" @onclick="CerrarAlerta"></button>
+        </div>
+    }
+
+    <!-- Tarjetas de Estadísticas -->
+    <div class="row mb-4">
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card border-left-primary shadow h-100">
+                <div class="card-body">
+                    <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                        Turnos en BD
+                    </div>
+                    <div class="h5 mb-0 font-weight-bold text-gray-800">
+                        @estadisticas.TotalTurnos
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card border-left-success shadow h-100">
+                <div class="card-body">
+                    <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                        Lotes Registrados
+                    </div>
+                    <div class="h5 mb-0 font-weight-bold text-gray-800">
+                        @estadisticas.TotalLotes
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card border-left-info shadow h-100">
+                <div class="card-body">
+                    <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                        Eventos de Carga
+                    </div>
+                    <div class="h5 mb-0 font-weight-bold text-gray-800">
+                        @estadisticas.TotalEventosCarga
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card border-left-warning shadow h-100">
+                <div class="card-body">
+                    <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                        Consumos de Bolsas
+                    </div>
+                    <div class="h5 mb-0 font-weight-bold text-gray-800">
+                        @estadisticas.TotalConsumos
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panel de Acciones Rápidas -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-download me-2"></i>
+                        Exportar Backup de Datos
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-3">
+                        Descarga una copia de seguridad completa de todos los datos de producción en formato JSON.
+                        Esto incluye turnos, lotes, eventos de carga, consumos, paradas y más.
+                    </p>
+                    <button class="btn btn-info" @onclick="DescargarBackup" disabled="@descargandoBackup">
+                        @if (descargandoBackup)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                            <span>Generando backup...</span>
+                        }
+                        else
+                        {
+                            <i class="fas fa-file-download me-2"></i>
+                            <span>Descargar Backup (JSON)</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panel de Limpieza -->
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card shadow mb-4">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Limpieza de Datos de Producción
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        <strong>¡ADVERTENCIA!</strong> Esta acción eliminará permanentemente todos los datos de producción.
+                        <strong>Se recomienda descargar un backup antes de continuar.</strong>
+                    </div>
+
+                    <h6 class="mb-3">Datos que serán eliminados:</h6>
+                    <ul class="list-group mb-3">
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Turnos de Producción
+                            <span class="badge bg-primary rounded-pill">@estadisticas.TotalTurnos</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Lotes de Producción
+                            <span class="badge bg-primary rounded-pill">@estadisticas.TotalLotes</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Eventos de Carga
+                            <span class="badge bg-primary rounded-pill">@estadisticas.TotalEventosCarga</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Consumos de Bolsas
+                            <span class="badge bg-primary rounded-pill">@estadisticas.TotalConsumos</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Paradas de Producción
+                            <span class="badge bg-primary rounded-pill">@estadisticas.TotalParadas</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Registros de Material Producido
+                            <span class="badge bg-primary rounded-pill">@estadisticas.TotalProduccionMaterial</span>
+                        </li>
+                    </ul>
+
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="backupDescargado" @bind="backupDescargado">
+                        <label class="form-check-label fw-bold text-info" for="backupDescargado">
+                            He descargado un backup de los datos
+                        </label>
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="confirmarLimpieza" @bind="confirmarLimpieza">
+                        <label class="form-check-label fw-bold text-danger" for="confirmarLimpieza">
+                            Confirmo que deseo eliminar TODOS los datos de producción
+                        </label>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-danger btn-lg" 
+                                @onclick="LimpiarBaseDatos" 
+                                disabled="@(!confirmarLimpieza || !backupDescargado || procesando)">
+                            @if (procesando)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                                <span>Procesando...</span>
+                            }
+                            else
+                            {
+                                <i class="fas fa-trash-alt me-2"></i>
+                                <span>Limpiar Base de Datos</span>
+                            }
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel de Información y Backup -->
+        <div class="col-lg-4">
+            <div class="card shadow mb-4">
+                <div class="card-header bg-success text-white">
+                    <h6 class="mb-0">
+                        <i class="fas fa-check-circle me-2"></i>
+                        Proceso Recomendado
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <h6 class="text-muted mb-3">Pasos a seguir:</h6>
+                    <ol class="small">
+                        <li class="mb-2">
+                            <strong>Descargar backup</strong> usando el botón azul arriba
+                            @if (backupDescargado)
+                            {
+                                <i class="fas fa-check text-success ms-2"></i>
+                            }
+                        </li>
+                        <li class="mb-2">
+                            <strong>Verificar</strong> que el archivo JSON se descargó correctamente
+                        </li>
+                        <li class="mb-2">
+                            <strong>Confirmar</strong> ambos checkboxes
+                        </li>
+                        <li class="mb-2">
+                            <strong>Ejecutar</strong> la limpieza
+                        </li>
+                    </ol>
+                </div>
+            </div>
+
+            <div class="card shadow mb-4">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Información del Backup
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <p class="small mb-2">
+                        <strong>Formato:</strong> JSON
+                    </p>
+                    <p class="small mb-2">
+                        <strong>Contenido:</strong> Todos los datos de producción con relaciones
+                    </p>
+                    <p class="small mb-2">
+                        <strong>Uso:</strong> El backup puede ser usado para auditoría o restauración manual
+                    </p>
+                </div>
+            </div>
+
+            <div class="card shadow">
+                <div class="card-header bg-secondary text-white">
+                    <h6 class="mb-0">
+                        <i class="fas fa-history me-2"></i>
+                        Última Limpieza
+                    </h6>
+                </div>
+                <div class="card-body">
+                    @if (ultimaLimpieza.HasValue)
+                    {
+                        <p class="mb-1"><strong>Fecha:</strong></p>
+                        <p class="text-muted">@ultimaLimpieza.Value.ToString("dd/MM/yyyy HH:mm:ss")</p>
+                    }
+                    else
+                    {
+                        <p class="text-muted">No hay registros de limpiezas previas</p>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private bool confirmarLimpieza = false;
+    private bool backupDescargado = false;
+    private bool procesando = false;
+    private bool descargandoBackup = false;
+    private string mensajeAlerta = string.Empty;
+    private string alertClass = string.Empty;
+    private string alertIcon = string.Empty;
+    private DateTime? ultimaLimpieza = null;
+
+    private EstadisticasBD estadisticas = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarEstadisticas();
+    }
+
+    private async Task CargarEstadisticas()
+    {
+        try
+        {
+            var response = await Http.GetFromJsonAsync<EstadisticasResponse>("api/mantenimiento/estadisticas");
+            if (response?.Success == true && response.Data != null)
+            {
+                estadisticas = response.Data;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar estadísticas: {ex.Message}");
+        }
+    }
+
+    private async Task DescargarBackup()
+    {
+        descargandoBackup = true;
+        mensajeAlerta = string.Empty;
+
+        try
+        {
+            var response = await Http.GetAsync("api/mantenimiento/exportar-backup");
+
+            if (response.IsSuccessStatusCode)
+            {
+                var fileBytes = await response.Content.ReadAsByteArrayAsync();
+                var fileName = $"Backup_CementoTrazabilidad_{DateTime.Now:yyyyMMdd_HHmmss}.json";
+
+                // Usar JavaScript para descargar el archivo
+                await JSRuntime.InvokeVoidAsync("descargarArchivo", fileName, "application/json", fileBytes);
+
+                backupDescargado = true;
+                MostrarAlerta("success", "fa-check-circle", 
+                    $"✅ Backup descargado exitosamente: {fileName}");
+            }
+            else
+            {
+                MostrarAlerta("danger", "fa-times-circle", 
+                    "❌ Error al generar el backup. Intente nuevamente.");
+            }
+        }
+        catch (Exception ex)
+        {
+            MostrarAlerta("danger", "fa-times-circle", 
+                $"❌ Error: {ex.Message}");
+        }
+        finally
+        {
+            descargandoBackup = false;
+        }
+    }
+
+    private async Task LimpiarBaseDatos()
+    {
+        if (!confirmarLimpieza || !backupDescargado)
+            return;
+
+        var confirmado = await JSRuntime.InvokeAsync<bool>("confirm", 
+            "⚠️ ÚLTIMA ADVERTENCIA ⚠️\n\n" +
+            "Está a punto de eliminar TODOS los datos de producción.\n" +
+            "Esta acción NO se puede deshacer.\n\n" +
+            "¿Está absolutamente seguro de continuar?");
+
+        if (!confirmado)
+            return;
+
+        procesando = true;
+        mensajeAlerta = string.Empty;
+
+        try
+        {
+            var response = await Http.DeleteAsync("api/mantenimiento/limpiar-turnos");
+
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<LimpiezaResponse>();
+                
+                if (result?.Success == true)
+                {
+                    MostrarAlerta("success", "fa-check-circle", 
+                        "✅ Base de datos limpiada exitosamente. Todos los datos de producción han sido eliminados.");
+                    
+                    ultimaLimpieza = DateTime.Now;
+                    confirmarLimpieza = false;
+                    backupDescargado = false;
+                    
+                    await CargarEstadisticas();
+                }
+                else
+                {
+                    MostrarAlerta("danger", "fa-times-circle", 
+                        $"❌ Error: {result?.Message ?? "Error desconocido"}");
+                }
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                MostrarAlerta("danger", "fa-times-circle", 
+                    $"❌ Error del servidor: {errorContent}");
+            }
+        }
+        catch (Exception ex)
+        {
+            MostrarAlerta("danger", "fa-times-circle", 
+                $"❌ Excepción: {ex.Message}");
+        }
+        finally
+        {
+            procesando = false;
+        }
+    }
+
+    private void MostrarAlerta(string tipo, string icono, string mensaje)
+    {
+        alertClass = $"alert-{tipo}";
+        alertIcon = icono;
+        mensajeAlerta = mensaje;
+        StateHasChanged();
+    }
+
+    private void CerrarAlerta()
+    {
+        mensajeAlerta = string.Empty;
+    }
+
+    public class EstadisticasBD
+    {
+        public int TotalTurnos { get; set; }
+        public int TotalLotes { get; set; }
+        public int TotalEventosCarga { get; set; }
+        public int TotalConsumos { get; set; }
+        public int TotalParadas { get; set; }
+        public int TotalProduccionMaterial { get; set; }
+    }
+
+    public class EstadisticasResponse
+    {
+        public bool Success { get; set; }
+        public EstadisticasBD? Data { get; set; }
+    }
+
+    public class LimpiezaResponse
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = string.Empty;
+    }
+}
+
+<style>
+    .border-left-primary {
+        border-left: 0.25rem solid #4e73df !important;
+    }
+
+    .border-left-success {
+        border-left: 0.25rem solid #1cc88a !important;
+    }
+
+    .border-left-info {
+        border-left: 0.25rem solid #36b9cc !important;
+    }
+
+    .border-left-warning {
+        border-left: 0.25rem solid #f6c23e !important;
+    }
+</style>

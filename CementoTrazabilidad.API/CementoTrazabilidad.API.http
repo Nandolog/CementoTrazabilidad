@@ -1,0 +1,6 @@
+@CementoTrazabilidad.API_HostAddress = http://localhost:5198
+
+GET {{CementoTrazabilidad.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

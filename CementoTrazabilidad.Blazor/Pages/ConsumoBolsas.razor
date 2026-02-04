@@ -1,0 +1,255 @@
+﻿@page "/consumo-bolsas"
+@using CementoTrazabilidad.Shared.DTOs
+@inject IConsumoBolsasService ConsumoBolsasService
+@inject ITurnoService TurnoService
+@inject IJSRuntime JS
+
+<PageTitle>Consumo de Bolsas</PageTitle>
+
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h2><i class="fas fa-boxes me-2"></i>Consumo de Bolsas</h2>
+        </div>
+        <div class="col-auto">
+            <button class="btn btn-primary" @onclick="AbrirModalNuevo">
+                <i class="fas fa-plus me-2"></i>Registrar Consumo
+            </button>
+        </div>
+    </div>
+
+    @if (cargando)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+            <p class="mt-2">Cargando consumos...</p>
+        </div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="card-body">
+                @if (consumos.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Proveedor</th>
+                                    <th>Material</th>
+                                    <th>Tipo Cemento</th>
+                                    <th>Lote</th>
+                                    <th>Cantidad</th>
+                                    <th>Defectuosas</th>
+                                    <th>Observaciones</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var consumo in consumos)
+                                {
+                                    <tr>
+                                        <td>@consumo.FechaConsumo.ToString("dd/MM/yyyy HH:mm")</td>
+                                        <td>@consumo.ProveedorNombre</td>
+                                        <td>@(consumo.MaterialDescripcion ?? "-")</td>
+                                        <td><span class="badge bg-info">@(consumo.TipoCemento ?? "-")</span></td>
+                                        <td>@(consumo.LoteBolsa ?? "-")</td>
+                                        <td><strong>@consumo.CantidadBolsas</strong></td>
+                                        <td>
+                                            @if (consumo.BolsasDefectuosas > 0)
+                                            {
+                                                <span class="badge bg-warning">@consumo.BolsasDefectuosas</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">0</span>
+                                            }
+                                        </td>
+                                        <td>@(consumo.Observaciones ?? "-")</td>
+                                        <td>
+                                            <button class="btn btn-sm btn-danger" @onclick="() => EliminarConsumo(consumo.ConsumoBolsasID)">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>No hay consumos registrados.
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@* Modal para nuevo consumo *@
+@if (mostrarModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Registrar Consumo de Bolsas</h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModal"></button>
+                </div>
+                <div class="modal-body">
+                    <EditForm Model="nuevoConsumo" OnValidSubmit="GuardarConsumo">
+                        <DataAnnotationsValidator />
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Turno</label>
+                                <select class="form-select" @bind="nuevoConsumo.TurnoProduccionID" required>
+                                    <option value="0">Seleccione turno...</option>
+                                    @foreach (var turno in turnos)
+                                    {
+                                        <option value="@turno.TurnoProduccionID">
+                                            @turno.Fecha.ToString("dd/MM/yyyy") - Turno @turno.TurnoNumero
+                                        </option>
+                                    }
+                                </select>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Proveedor de Bolsas</label>
+                                <select class="form-select" @bind="nuevoConsumo.ProveedorBolsaID" required>
+                                    <option value="0">Seleccione proveedor...</option>
+                                    @foreach (var proveedor in proveedores)
+                                    {
+                                        <option value="@proveedor.ProveedorBolsaID">@proveedor.Nombre</option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Cantidad de Bolsas</label>
+                                <input type="number" class="form-control" @bind="nuevoConsumo.CantidadBolsas" required min="1" />
+                            </div>
+
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Bolsas Defectuosas</label>
+                                <input type="number" class="form-control" @bind="nuevoConsumo.BolsasDefectuosas" min="0" />
+                            </div>
+
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Tipo de Cemento</label>
+                                <select class="form-select" @bind="nuevoConsumo.TipoCemento">
+                                    <option value="">Seleccione...</option>
+                                    <option value="C32">C32</option>
+                                    <option value="F40">F40</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Lote de Bolsas</label>
+                            <input type="text" class="form-control" @bind="nuevoConsumo.LoteBolsa" maxlength="50" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Observaciones</label>
+                            <textarea class="form-control" @bind="nuevoConsumo.Observaciones" rows="3" maxlength="500"></textarea>
+                        </div>
+
+                        <div class="d-flex justify-content-end gap-2">
+                            <button type="button" class="btn btn-secondary" @onclick="CerrarModal">Cancelar</button>
+                            <button type="submit" class="btn btn-primary" disabled="@guardando">
+                                @if (guardando)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2"></span>
+                                }
+                                Guardar
+                            </button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<ConsumoBolsasDTO> consumos = new();
+    private List<TurnoDto> turnos = new();
+    private List<ProveedorBolsaDTO> proveedores = new();
+    private ConsumoBolsasCreateDTO nuevoConsumo = new();
+    private bool cargando = true;
+    private bool mostrarModal = false;
+    private bool guardando = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatos();
+    }
+
+    private async Task CargarDatos()
+    {
+        cargando = true;
+        consumos = await ConsumoBolsasService.GetConsumosAsync();
+        turnos = await TurnoService.GetTurnosAsync();
+        proveedores = await ConsumoBolsasService.GetProveedoresAsync();
+        cargando = false;
+    }
+
+    private void AbrirModalNuevo()
+    {
+        nuevoConsumo = new ConsumoBolsasCreateDTO();
+        mostrarModal = true;
+    }
+
+    private void CerrarModal()
+    {
+        mostrarModal = false;
+        nuevoConsumo = new();
+    }
+
+    private async Task GuardarConsumo()
+    {
+        guardando = true;
+        var resultado = await ConsumoBolsasService.CreateConsumoAsync(nuevoConsumo);
+        
+        if (resultado != null)
+        {
+            await JS.InvokeVoidAsync("alert", "✅ Consumo registrado exitosamente");
+            CerrarModal();
+            await CargarDatos();
+        }
+        else
+        {
+            await JS.InvokeVoidAsync("alert", "❌ Error al registrar el consumo");
+        }
+        
+        guardando = false;
+    }
+
+    private async Task EliminarConsumo(int id)
+    {
+        bool confirmado = await JS.InvokeAsync<bool>("confirm", "¿Está seguro de eliminar este consumo?");
+        
+        if (confirmado)
+        {
+            bool resultado = await ConsumoBolsasService.DeleteConsumoAsync(id);
+            
+            if (resultado)
+            {
+                await JS.InvokeVoidAsync("alert", "✅ Consumo eliminado exitosamente");
+                await CargarDatos();
+            }
+            else
+            {
+                await JS.InvokeVoidAsync("alert", "❌ Error al eliminar el consumo");
+            }
+        }
+    }
+}

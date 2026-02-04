@@ -1,0 +1,12 @@
+**/.vs
+**/.vscode
+**/bin
+**/obj
+**/.git
+**/.gitignore
+**/node_modules
+**/*.md
+**/Dockerfile
+**/.dockerignore
+**/docker-compose*
+**/*.DotSettings

@@ -1,0 +1,444 @@
+@page "/despachos"
+@using CementoTrazabilidad.Shared.DTOs
+@using CementoTrazabilidad.Blazor.Services
+@inject IDespachoService DespachoService
+@inject ITurnoService TurnoService
+@inject IMaterialService MaterialService
+@attribute [Authorize]
+
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h2><i class="fas fa-truck-loading"></i> Gestión de Despachos</h2>
+        </div>
+        <div class="col-auto">
+            <button class="btn btn-primary" @onclick="AbrirModalCrear">
+                <i class="fas fa-plus"></i> Nuevo Despacho
+            </button>
+        </div>
+    </div>
+
+    @if (cargando)
+    {
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+        </div>
+    }
+    else if (despachos.Count == 0)
+    {
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i> No hay despachos registrados.
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead class="table-dark">
+                    <tr>
+                        <th>ID</th>
+                        <th>Fecha/Hora</th>
+                        <th>Turno</th>
+                        <th>Material</th>
+                        <th>Modalidad</th>
+                        <th>Destino</th>
+                        <th>Bolsas</th>
+                        <th>Toneladas</th>
+                        <th>Camiones</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var despacho in despachos)
+                    {
+                        <tr>
+                            <td>@despacho.DespachoID</td>
+                            <td>@despacho.FechaHoraDespacho?.ToString("dd/MM/yyyy HH:mm")</td>
+                            <td>
+                                @if (despacho.TurnoNumero.HasValue)
+                                {
+                                    <span>
+                                        Turno @despacho.TurnoNumero
+                                        @if (despacho.TurnoFecha.HasValue)
+                                        {
+                                            <br />
+                                            <small class="text-muted">@despacho.TurnoFecha.Value.ToString("dd/MM/yyyy")</small>
+                                        }
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">Sin turno</span>
+                                }
+                            </td>
+                            <td>
+                                @if (!string.IsNullOrEmpty(despacho.MaterialDescripcion))
+                                {
+                                    <span class="badge bg-success">@despacho.MaterialDescripcion</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">Sin especificar</span>
+                                }
+                            </td>
+                            <td>
+                                <span class="badge bg-info">
+                                    @(despacho.Modalidad switch
+                                    {
+                                        "Granel" => "Granel",
+                                        "Pallet" => "Paletizado",
+                                        "Anden" => "Andén",
+                                        _ => despacho.Modalidad
+                                    })
+                                </span>
+                            </td>
+                            <td>@despacho.Destino</td>
+                            <td class="text-end">@despacho.Bolsas?.ToString("N0")</td>
+                            <td class="text-end">@despacho.Toneladas?.ToString("N2")</td>
+                            <td class="text-end">@despacho.Camiones</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary" @onclick="() => AbrirModalEditar(despacho)">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger ms-1" @onclick="() => ConfirmarEliminar(despacho)">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+<!-- Modal Crear/Editar -->
+@if (mostrarModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        @(esEdicion ? "Editar Despacho" : "Nuevo Despacho")
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModal"></button>
+                </div>
+                <div class="modal-body">
+                    <EditForm Model="despachoActual" OnValidSubmit="@GuardarDespacho">
+                        <DataAnnotationsValidator />
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Turno</label>
+                                <select class="form-select" @bind="despachoActual.TurnoProduccionID">
+                                    <option value="">Sin turno asignado</option>
+                                    @foreach (var turno in turnosDisponibles)
+                                    {
+                                        <option value="@turno.TurnoProduccionID">
+                                            Turno @turno.TurnoNumero - @turno.Fecha.ToString("dd/MM/yyyy")
+                                        </option>
+                                    }
+                                </select>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Material</label>
+                                <select class="form-select" @bind="despachoActual.MaterialID">
+                                    <option value="">Sin material especificado</option>
+                                    @foreach (var material in materialesDisponibles)
+                                    {
+                                        <option value="@material.MaterialID">
+                                            @material.Codigo - @material.Descripcion
+                                        </option>
+                                    }
+                                </select>
+                                <small class="text-muted">Tipo de cemento u otro material despachado</small>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Fecha y Hora Despacho *</label>
+                                <input type="datetime-local" class="form-control" 
+                                       @bind="fechaHoraDespachoInput" 
+                                       required />
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Modalidad *</label>
+                                <select class="form-select" @bind="despachoActual.Modalidad" required>
+                                    <option value="">Seleccionar...</option>
+                                    <option value="Granel">Granel</option>
+                                    <option value="Pallet">Paletizado</option>
+                                    <option value="Anden">Andén (Bolsas)</option>
+                                </select>
+                                <ValidationMessage For="@(() => despachoActual.Modalidad)" />
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-12 mb-3">
+                                <label class="form-label">Destino *</label>
+                                <input type="text" class="form-control" 
+                                       @bind="despachoActual.Destino" 
+                                       placeholder="Ej: Planta Norte, Cliente ABC"
+                                       required />
+                                <ValidationMessage For="@(() => despachoActual.Destino)" />
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Bolsas</label>
+                                <input type="number" class="form-control" 
+                                       @bind="despachoActual.Bolsas" 
+                                       min="0" />
+                            </div>
+
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Toneladas</label>
+                                <input type="number" class="form-control" 
+                                       @bind="despachoActual.Toneladas" 
+                                       step="0.01" 
+                                       min="0" />
+                            </div>
+
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Camiones</label>
+                                <input type="number" class="form-control" 
+                                       @bind="despachoActual.Camiones" 
+                                       min="0" />
+                            </div>
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(mensajeError))
+                        {
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-triangle"></i> @mensajeError
+                            </div>
+                        }
+
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" @onclick="CerrarModal">
+                                Cancelar
+                            </button>
+                            <button type="submit" class="btn btn-primary" disabled="@guardando">
+                                @if (guardando)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1"></span>
+                                }
+                                Guardar
+                            </button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal Confirmar Eliminación -->
+@if (mostrarModalEliminar)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">Confirmar Eliminación</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CerrarModalEliminar"></button>
+                </div>
+                <div class="modal-body">
+                    <p>¿Está seguro que desea eliminar este despacho?</p>
+                    @if (despachoAEliminar != null)
+                    {
+                        <ul>
+                            <li><strong>Destino:</strong> @despachoAEliminar.Destino</li>
+                            <li><strong>Modalidad:</strong> @despachoAEliminar.Modalidad</li>
+                            <li><strong>Fecha:</strong> @despachoAEliminar.FechaHoraDespacho?.ToString("dd/MM/yyyy HH:mm")</li>
+                        </ul>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CerrarModalEliminar">
+                        Cancelar
+                    </button>
+                    <button type="button" class="btn btn-danger" @onclick="EliminarDespacho" disabled="@eliminando">
+                        @if (eliminando)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        Eliminar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<DespachoDTO> despachos = new();
+    private List<TurnoDto> turnosDisponibles = new();
+    private List<MaterialDto> materialesDisponibles = new();
+    private bool cargando = true;
+    private bool mostrarModal = false;
+    private bool mostrarModalEliminar = false;
+    private bool esEdicion = false;
+    private bool guardando = false;
+    private bool eliminando = false;
+    private string mensajeError = string.Empty;
+    
+    private DespachoFormModel despachoActual = new();
+    private DespachoDTO? despachoAEliminar;
+    private DateTime fechaHoraDespachoInput = DateTime.Now;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatos();
+    }
+
+    private async Task CargarDatos()
+    {
+        cargando = true;
+        despachos = await DespachoService.GetDespachosAsync();
+        turnosDisponibles = await TurnoService.GetTurnosAsync();
+        materialesDisponibles = await MaterialService.GetMaterialesAsync(soloActivos: true);
+        cargando = false;
+    }
+
+    private void AbrirModalCrear()
+    {
+        esEdicion = false;
+        despachoActual = new DespachoFormModel();
+        fechaHoraDespachoInput = DateTime.Now;
+        mensajeError = string.Empty;
+        mostrarModal = true;
+    }
+
+    private void AbrirModalEditar(DespachoDTO despacho)
+    {
+        esEdicion = true;
+        despachoActual = new DespachoFormModel
+        {
+            DespachoID = despacho.DespachoID,
+            TurnoProduccionID = despacho.TurnoProduccionID,
+            MaterialID = despacho.MaterialID,
+            Modalidad = despacho.Modalidad,
+            Destino = despacho.Destino,
+            Bolsas = despacho.Bolsas,
+            Toneladas = despacho.Toneladas,
+            Camiones = despacho.Camiones
+        };
+        fechaHoraDespachoInput = despacho.FechaHoraDespacho ?? DateTime.Now;
+        mensajeError = string.Empty;
+        mostrarModal = true;
+    }
+
+    private async Task GuardarDespacho()
+    {
+        guardando = true;
+        mensajeError = string.Empty;
+
+        try
+        {
+            bool exito;
+            if (esEdicion)
+            {
+                var dto = new UpdateDespachoDTO
+                {
+                    TurnoProduccionID = despachoActual.TurnoProduccionID,
+                    MaterialID = despachoActual.MaterialID,
+                    Modalidad = despachoActual.Modalidad,
+                    Destino = despachoActual.Destino,
+                    Bolsas = despachoActual.Bolsas,
+                    Toneladas = despachoActual.Toneladas,
+                    Camiones = despachoActual.Camiones,
+                    FechaHoraDespacho = fechaHoraDespachoInput
+                };
+                exito = await DespachoService.UpdateDespachoAsync(despachoActual.DespachoID, dto);
+            }
+            else
+            {
+                var dto = new CreateDespachoDTO
+                {
+                    TurnoProduccionID = despachoActual.TurnoProduccionID,
+                    MaterialID = despachoActual.MaterialID,
+                    Modalidad = despachoActual.Modalidad,
+                    Destino = despachoActual.Destino,
+                    Bolsas = despachoActual.Bolsas,
+                    Toneladas = despachoActual.Toneladas,
+                    Camiones = despachoActual.Camiones,
+                    FechaHoraDespacho = fechaHoraDespachoInput
+                };
+                exito = await DespachoService.CreateDespachoAsync(dto);
+            }
+
+            if (exito)
+            {
+                await CargarDatos();
+                CerrarModal();
+            }
+            else
+            {
+                mensajeError = "Error al guardar el despacho. Intente nuevamente.";
+            }
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            guardando = false;
+        }
+    }
+
+    private void ConfirmarEliminar(DespachoDTO despacho)
+    {
+        despachoAEliminar = despacho;
+        mostrarModalEliminar = true;
+    }
+
+    private async Task EliminarDespacho()
+    {
+        if (despachoAEliminar == null) return;
+
+        eliminando = true;
+        var exito = await DespachoService.DeleteDespachoAsync(despachoAEliminar.DespachoID);
+        
+        if (exito)
+        {
+            await CargarDatos();
+            CerrarModalEliminar();
+        }
+        
+        eliminando = false;
+    }
+
+    private void CerrarModal()
+    {
+        mostrarModal = false;
+        despachoActual = new();
+        mensajeError = string.Empty;
+    }
+
+    private void CerrarModalEliminar()
+    {
+        mostrarModalEliminar = false;
+        despachoAEliminar = null;
+    }
+
+    private class DespachoFormModel
+    {
+        public int DespachoID { get; set; }
+        public int? TurnoProduccionID { get; set; }
+        public int? MaterialID { get; set; }
+        public string Modalidad { get; set; } = string.Empty;
+        public string Destino { get; set; } = string.Empty;
+        public int? Bolsas { get; set; }
+        public decimal? Toneladas { get; set; }
+        public int? Camiones { get; set; }
+    }
+}
