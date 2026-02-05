@@ -237,16 +237,22 @@ dotnet reportgenerator -reports:coverage.opencover.xml -targetdir:coverage
 ## 📸 **Screenshots**
 
 <div align="center">
+### **Login**
+![Login](docs/images/screenshot-login.png)
 
 ### **Dashboard Principal**
-![Dashboard](https://via.placeholder.com/800x400/1a1a2e/0ea5e9?text=Dashboard+de+Metricas)
+![Dashboard](docs/images/screenshot-dashboard1.png)
+![Dashboard](docs/images/screenshot-dashboard2.png)
+![Dashboard](docs/images/screenshot-dashboard3.png)
 
-### **Gestión de Lotes**
-![Lotes](https://via.placeholder.com/800x400/1a1a2e/10b981?text=Gestion+de+Lotes)
+### **Turnos de Produccion**
+![Turnos de Produccion](docs/images/screenshot-Turnos de Produccion.png)
 
-### **Reportes**
-![Reportes](https://via.placeholder.com/800x400/1a1a2e/f59e0b?text=Reportes+Excel)
+### **Gestion de Personal**
+![Gestion de Persona](docs/images/screenshot-Gestion de Personal.png)
 
+### **Control Turno**
+![Control del Turno](docs/images/screenshot-Control del turno actual.png)
 </div>
 
 ---
