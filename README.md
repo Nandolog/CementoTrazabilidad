@@ -236,26 +236,68 @@ dotnet reportgenerator -reports:coverage.opencover.xml -targetdir:coverage
 
 ## 📸 **Screenshots**
 
+## 📸 **Screenshots**
+
 <div align="center">
-### **Login**
+
+### **🔐 Pantalla de Login**
 ![Login](docs/images/screenshot-login.png)
 
-### **Dashboard Principal**
-![Dashboard](docs/images/screenshot-dashboard1.png)
-![Dashboard](docs/images/screenshot-dashboard2.png)
-![Dashboard](docs/images/screenshot-dashboard3.png)
+---
 
-### **Turnos de Produccion**
-![Turnos de Produccion](docs/images/screenshot-Turnos de Produccion.png)
+### **📊 Dashboard Principal**
 
-### **Gestion de Personal**
-![Gestion de Persona](docs/images/screenshot-Gestion de Personal.png)
-
-### **Control Turno**
-![Control del Turno](docs/images/screenshot-Control del turno actual.png)
-</div>
+<table>
+  <tr>
+    <td><img src="docs/images/screenshot-dashboard1.png" alt="Dashboard 1" width="400"/></td>
+    <td><img src="docs/images/screenshot-dashboard2.png" alt="Dashboard 2" width="400"/></td>
+  </tr>
+  <tr>
+    <td colspan="2"><img src="docs/images/screenshot-dashboard3.png" alt="Dashboard 3" width="800"/></td>
+  </tr>
+</table>
 
 ---
+
+### **⏰ Gestión de Turnos**
+![Turnos de Produccion](docs/images/screenshot-turnos-de-produccion.png)
+
+---
+
+### **👥 Gestión de Personal**
+![Gestion de Personal](docs/images/screenshot-gestion-de-personal.png)
+
+---
+
+### **🎯 Control del Turno Actual**
+![Control del Turno](docs/images/screenshot-control-del-turno-actual.png)
+
+---
+
+### **🚚 Gestión de Despachos**
+![Gestion Despacho](docs/images/gestion-despacho.png)
+
+---
+
+### **📦 Registro de Lotes**
+![Registro de Lotes](docs/images/screenshot-registro-de-lotes.png)
+
+---
+
+### **🔧 Materiales**
+![Materiales](docs/images/screenshot-materiales.png)
+
+---
+
+### **💾 Mantenimiento de Base de Datos**
+![Mantenimiento BD](docs/images/screenshot-manteniemiento-de-base-de-datos.png)
+
+---
+
+### **📊 Consumo de Bolsas**
+![Consumo de Bolsas](docs/images/screenshot-consumo-de-bolsas.png)
+
+</div>
 
 ## 🤝 **Contribuir**
 
