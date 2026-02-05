@@ -9,7 +9,12 @@
     <div class="card shadow-lg" style="max-width: 400px; width: 100%; border-radius: 15px;">
         <div class="card-body p-4">
             <div class="text-center mb-4">
-                <img src="images/logo.png" alt="Logo" class="login-logo mb-3">
+                <img src="/IconoTO.png" 
+                     alt="Logo CementoTrazabilidad" 
+                     class="login-logo mb-3"
+                     onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
+                <i class="fas fa-industry fa-3x mb-3 text-primary logo-fallback" style="display: none;"></i>
+                
                 <h4 class="fw-bold text-primary">Sistema de Trazabilidad</h4>
                 <p class="text-muted small">Ingrese sus credenciales</p>
             </div>
@@ -19,12 +24,13 @@
 
                 <div class="mb-3">
                     <label class="form-label fw-semibold">
-                        <i class="fas fa-user me-2"></i>Legajo
+                        <i class="fas fa-id-card me-2"></i>Legajo
                     </label>
                     <InputText @bind-Value="loginRequest.Legajo" 
                                class="form-control form-control-lg" 
-                               placeholder="Ingrese su legajo"
-                               disabled="@isLoading" />
+                               placeholder="Ej: ADMIN001"
+                               disabled="@isLoading" 
+                               autofocus />
                     <ValidationMessage For="@(() => loginRequest.Legajo)" class="text-danger small" />
                 </div>
 
@@ -69,12 +75,24 @@
 
 <style>
     .login-logo {
-        width: 150px;
-        height: 150px;
+        width: 120px;
+        height: 120px;
         object-fit: contain;
         mix-blend-mode: multiply;
         filter: contrast(1.2) brightness(0.95);
         opacity: 0.9;
+    }
+    
+    .logo-fallback {
+        color: #4e73df;
+    }
+    
+    .bg-light {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    }
+    
+    .card {
+        border: none !important;
     }
 </style>
 
