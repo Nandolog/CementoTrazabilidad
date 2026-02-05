@@ -1,6 +1,7 @@
 ﻿using CementoTrazabilidad.Core.Entidades;
 using CementoTrazabilidad.Infrastructure.Data;
 using CementoTrazabilidad.Shared.DTOs;
+using CementoTrazabilidad.API.Authorization; // ✅ AGREGAR
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -66,6 +67,7 @@ public class ParadaController : ControllerBase
 
     // POST: api/parada
     [HttpPost]
+    [RequieresTurnoActivo] // ✅ AGREGAR - Solo usuarios en turno
     public async Task<IActionResult> CrearParada([FromBody] ParadaDto paradaDto)
     {
         using var transaction = await _context.Database.BeginTransactionAsync();
@@ -188,6 +190,7 @@ public class ParadaController : ControllerBase
 
     // PUT: api/parada/5
     [HttpPut("{id}")]
+    [RequieresTurnoActivo] // ✅ AGREGAR
     public async Task<IActionResult> ActualizarParada(int id, [FromBody] ParadaDto paradaDto)
     {
         try
@@ -317,6 +320,7 @@ public class ParadaController : ControllerBase
 
     // PUT: api/parada/5/finalizar
     [HttpPut("{id}/finalizar")]
+    [RequieresTurnoActivo] // ✅ AGREGAR
     [Authorize(Roles = "Administrador,Supervisor,JefeTurno,Operario")]
     public async Task<IActionResult> FinalizarParada(int id, [FromBody] FinalizarParadaDto dto)
     {

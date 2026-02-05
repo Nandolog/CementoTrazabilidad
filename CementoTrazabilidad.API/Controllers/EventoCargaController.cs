@@ -1,10 +1,10 @@
 ﻿using CementoTrazabilidad.Core.Entidades;
 using CementoTrazabilidad.Infrastructure.Data;
 using CementoTrazabilidad.Shared.DTOs;
+using CementoTrazabilidad.API.Authorization; // ✅ AGREGAR
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging; // Agrega este using
 
 namespace CementoTrazabilidad.API.Controllers;
 
@@ -25,6 +25,7 @@ public class EventoCargaController : ControllerBase
     // POST: api/eventocarga
     // POST: api/eventocarga
     [HttpPost]
+    [RequieresTurnoActivo] // ✅ AGREGAR
     public async Task<IActionResult> RegistrarEvento([FromBody] RegistrarEventoCargaDto dto)
     {
         try
@@ -312,7 +313,7 @@ public class EventoCargaController : ControllerBase
 
     // DELETE: api/eventocarga/5
     [HttpDelete("{id}")]
-    [Authorize(Roles = "Administrador,Supervisor")]
+    [Authorize(Roles = "Administrador,Supervisor")] // ✅ Ya existía
     public async Task<IActionResult> Delete(int id)
     {
         var evento = await _context.EventosCarga.FindAsync(id);

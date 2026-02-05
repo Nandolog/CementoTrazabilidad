@@ -1,5 +1,7 @@
 using CementoTrazabilidad.Infrastructure.Data;
 using CementoTrazabilidad.Shared.DTOs;
+using CementoTrazabilidad.API.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -7,6 +9,7 @@ namespace CementoTrazabilidad.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class ConsumoBolsasController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -76,6 +79,7 @@ namespace CementoTrazabilidad.API.Controllers
 
         // POST: api/ConsumoBolsas
         [HttpPost]
+        [RequieresTurnoActivo]
         public async Task<ActionResult<ConsumoBolsasDTO>> CreateConsumoBolsas(ConsumoBolsasCreateDTO dto)
         {
             var consumo = new Core.Entidades.ConsumoBolsas
@@ -121,6 +125,7 @@ namespace CementoTrazabilidad.API.Controllers
 
         // DELETE: api/ConsumoBolsas/5
         [HttpDelete("{id}")]
+        [RequieresTurnoActivo]
         public async Task<IActionResult> DeleteConsumoBolsas(int id)
         {
             var consumo = await _context.ConsumoBolsas.FindAsync(id);

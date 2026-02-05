@@ -82,6 +82,7 @@ builder.Services.AddScoped<IUsuarioRepository, UsuarioRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IExcelExportService, ExcelExportService>();
+builder.Services.AddScoped<ITurnoValidationService, TurnoValidationService>();  // ✅ AGREGAR AQUÍ
 
 // JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "DefaultKeyMinimum32CharactersLong!";
