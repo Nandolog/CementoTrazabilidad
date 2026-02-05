@@ -1,4 +1,6 @@
-﻿using CementoTrazabilidad.Core.Interfaces;
+﻿
+
+using CementoTrazabilidad.Core.Interfaces;
 using CementoTrazabilidad.Core.Entidades;
 using CementoTrazabilidad.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
