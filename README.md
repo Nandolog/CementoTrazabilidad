@@ -249,11 +249,11 @@ dotnet reportgenerator -reports:coverage.opencover.xml -targetdir:coverage
 
 <table>
   <tr>
-    <td><img src="docs/images/screenshot-dashboard1.png" alt="Dashboard 1" width="400"/></td>
-    <td><img src="docs/images/screenshot-dashboard2.png" alt="Dashboard 2" width="400"/></td>
+    <td><img src="docs/images/screenshot-Dashboard1.png" alt="Dashboard 1" width="400"/></td>
+    <td><img src="docs/images/screenshot-Dashboard2.png" alt="Dashboard 2" width="400"/></td>
   </tr>
   <tr>
-    <td colspan="2"><img src="docs/images/screenshot-dashboard3.png" alt="Dashboard 3" width="800"/></td>
+    <td colspan="2"><img src="docs/images/screenshot-Dashboard3.png" alt="Dashboard 3" width="800"/></td>
   </tr>
 </table>
 
@@ -285,7 +285,7 @@ dotnet reportgenerator -reports:coverage.opencover.xml -targetdir:coverage
 ---
 
 ### **🔧 Materiales**
-![Materiales](docs/images/screenshot-materiales.png)
+![Materiales](docs/images/screenshot-Materiales.png)
 
 ---
 
