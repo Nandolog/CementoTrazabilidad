@@ -290,7 +290,7 @@ dotnet reportgenerator -reports:coverage.opencover.xml -targetdir:coverage
 ---
 
 ### **💾 Mantenimiento de Base de Datos**
-![Mantenimiento BD](docs/images/screenshot-manteniemiento-de-base-de-datos.png)
+![Mantenimiento BD](docs/images/screenshot-manteniemiento-de--base-de-datos.png)
 
 ---
 
