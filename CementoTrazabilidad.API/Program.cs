@@ -15,17 +15,20 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddControllers();
 
-// CORS - Configuración ÚNICA
+// CORS - Configuración actualizada
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowDevelopment", policy =>
     {
         policy.WithOrigins(
-            "http://localhost:5198",    // API misma
-            "http://localhost:5165",    // Blazor
-            "http://localhost:5000",    // Blazor dev server
-            "https://localhost:5001",   // Blazor HTTPS
-            "http://localhost:7000"     // Otro puerto común
+            "http://localhost:5198",    // API local
+            "http://localhost:5165",    // Blazor local
+            "http://localhost:5000",
+            "https://localhost:5001",
+            "http://localhost:7000",
+            // ✅ AGREGAR DOMINIOS DE AZURE
+            "https://cemento-web.gentlesky-103e1b27.brazilsouth.azurecontainerapps.io",
+            "https://cemento-api.gentlesky-103e1b27.brazilsouth.azurecontainerapps.io"
         )
         .AllowAnyHeader()
         .AllowAnyMethod()
