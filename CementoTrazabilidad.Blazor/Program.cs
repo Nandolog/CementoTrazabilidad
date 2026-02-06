@@ -7,8 +7,8 @@ using Blazored.LocalStorage;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 
-// Configurar HttpClient
-var apiUrl = "http://localhost:5198/";
+// ✅ CORRECCIÓN: Leer URL de la API desde appsettings.json
+var apiUrl = builder.Configuration["ApiBaseUrl"] ?? "http://localhost:5198/";
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(apiUrl) });
 
 Console.WriteLine($"🎯 API URL configurada: {apiUrl}");
@@ -23,11 +23,11 @@ builder.Services.AddScoped<AuthenticationStateProvider, CustomAuthStateProvider>
 builder.Services.AddScoped<IClientAuthService, ClientAuthService>();
 builder.Services.AddScoped<ITurnoService, TurnoService>();
 builder.Services.AddScoped<IMaterialService, MaterialService>();
-builder.Services.AddScoped<IPersonalService, PersonalService>(); // ✅ Agregar esta línea
+builder.Services.AddScoped<IPersonalService, PersonalService>();
 builder.Services.AddScoped<IConsumoBolsasService, ConsumoBolsasService>();
 builder.Services.AddScoped<ILoteService, LoteService>();
 builder.Services.AddScoped<IMetricasService, MetricasService>();
-builder.Services.AddScoped<IDespachoService, DespachoService>(); // ✅ NUEVO
+builder.Services.AddScoped<IDespachoService, DespachoService>();
 
 builder.RootComponents.Add<CementoTrazabilidad.Blazor.App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
