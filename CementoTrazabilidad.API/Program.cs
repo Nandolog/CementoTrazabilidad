@@ -130,19 +130,17 @@ using (var scope = app.Services.CreateScope())
 }
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+// ✅ CORRECCIÓN: Habilitar Swagger en todos los ambientes (incluido Production)
+app.UseSwagger();
+app.UseSwaggerUI(options =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI(options =>
-    {
-        options.SwaggerEndpoint("/swagger/v1/swagger.json", "CementoTrazabilidad API v1");
-        options.RoutePrefix = "swagger"; // Acceder en /swagger
-        options.DocumentTitle = "CementoTrazabilidad API Documentation";
-    });
-}
+    options.SwaggerEndpoint("/swagger/v1/swagger.json", "CementoTrazabilidad API v1");
+    options.RoutePrefix = "swagger";
+    options.DocumentTitle = "CementoTrazabilidad API Documentation";
+});
 
 app.UseHttpsRedirection();
-app.UseCors("AllowDevelopment");  // SOLO UNA política CORS
+app.UseCors("AllowDevelopment");
 app.UseAuthentication();
 app.UseAuthorization();
 
