@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using CementoTrazabilidad.Core.Interfaces;
 using CementoTrazabilidad.Infrastructure.Repositories;
 using CementoTrazabilidad.Infrastructure.Services;
-using CementoTrazabilidad.API.Services;  // ✅ AGREGAR ESTA LÍNEA
+using CementoTrazabilidad.API.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
@@ -11,9 +11,17 @@ using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ✅ AGREGAR: Configurar zona horaria de Brasil
+TimeZoneInfo brazilTimeZone = TimeZoneInfo.FindSystemTimeZoneById("E. South America Standard Time"); // Brasil (UTC-3)
+builder.Services.AddSingleton(brazilTimeZone);
 
 // Add services to the container.
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        // ✅ AGREGAR: Configurar serialización de fechas
+        options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+    });
 
 // CORS - Configuración actualizada
 builder.Services.AddCors(options =>
@@ -21,12 +29,11 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowDevelopment", policy =>
     {
         policy.WithOrigins(
-            "http://localhost:5198",    // API local
-            "http://localhost:5165",    // Blazor local
+            "http://localhost:5198",
+            "http://localhost:5165",
             "http://localhost:5000",
             "https://localhost:5001",
             "http://localhost:7000",
-            // ✅ AGREGAR DOMINIOS DE AZURE
             "https://cemento-web.gentlesky-103e1b27.brazilsouth.azurecontainerapps.io",
             "https://cemento-api.gentlesky-103e1b27.brazilsouth.azurecontainerapps.io"
         )

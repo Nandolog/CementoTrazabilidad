@@ -28,6 +28,7 @@ builder.Services.AddScoped<IConsumoBolsasService, ConsumoBolsasService>();
 builder.Services.AddScoped<ILoteService, LoteService>();
 builder.Services.AddScoped<IMetricasService, MetricasService>();
 builder.Services.AddScoped<IDespachoService, DespachoService>();
+builder.Services.AddScoped<IDateTimeService, DateTimeService>();
 
 builder.RootComponents.Add<CementoTrazabilidad.Blazor.App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
