@@ -1143,6 +1143,15 @@
             await JSRuntime.InvokeVoidAsync("alert", $"Error al exportar: {ex.Message}");
         }
     }
+
+    private async Task ExportarMensual()
+    {
+        var año = DateTime.Now.Year;
+        var mes = DateTime.Now.Month;
+        
+        var url = $"{Http.BaseAddress}api/export/dashboard/mensual/{año}/{mes}";
+        await JSRuntime.InvokeVoidAsync("open", url, "_blank");
+    }
 }
 
 <style>

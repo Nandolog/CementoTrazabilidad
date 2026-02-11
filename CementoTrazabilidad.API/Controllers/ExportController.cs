@@ -111,6 +111,57 @@ public class ExportController : ControllerBase
         }
     }
 
+    // ✅ AGREGAR este nuevo endpoint al final del archivo ExportController.cs
+
+    [HttpGet("dashboard/mensual/{año}/{mes}")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ExportarDashboardMensual(int año, int mes)
+    {
+        try
+        {
+            _logger.LogInformation($"📥 Exportando dashboard mensual para {año}-{mes:D2}");
+            
+            // Obtener primer y último día del mes
+            var primerDia = new DateOnly(año, mes, 1);
+            var ultimoDia = primerDia.AddMonths(1).AddDays(-1);
+            
+            // Obtener TODOS los turnos del mes
+            var turnosMes = await _context.TurnosProduccion
+                .Where(t => t.Fecha >= primerDia && t.Fecha <= ultimoDia)
+                .OrderBy(t => t.Fecha)
+                .ThenBy(t => t.TurnoNumero)
+                .ToListAsync();
+
+            if (!turnosMes.Any())
+            {
+                _logger.LogWarning($"⚠️ No hay turnos para {año}-{mes:D2}");
+                return NotFound(new { message = $"No hay turnos para {año}-{mes:D2}" });
+            }
+
+            // Calcular métricas de cada turno
+            var metricasTurnos = new List<MetricasTurnoDto>();
+            foreach (var turno in turnosMes)
+            {
+                var metricas = await CalcularMetricasTurno(turno.TurnoProduccionID);
+                metricasTurnos.Add(metricas);
+            }
+
+            // Generar Excel mensual
+            var excel = _excelService.GenerarReporteMensual(metricasTurnos, turnosMes.Select(MapearTurnoDto).ToList(), año, mes);
+
+            var fileName = $"Reporte_Mensual_{año}_{mes:D2}.xlsx";
+            
+            _logger.LogInformation($"✅ Excel mensual generado: {fileName}");
+            
+            return File(excel, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"❌ Error al exportar dashboard mensual para {año}-{mes:D2}");
+            return StatusCode(500, new { message = ex.Message });
+        }
+    }
+
     // ============ MÉTODOS AUXILIARES ============
     
     private MetricasDiariasDto CalcularMetricasDiarias(List<MetricasTurnoDto> metricasTurnos, DateOnly fecha)
