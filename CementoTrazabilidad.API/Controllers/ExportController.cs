@@ -257,28 +257,24 @@ public class ExportController : ControllerBase
 
         var factorProduccion = tnPorHora / 80m * 100m; // Objetivo 80 Tn/h
 
-        // Obtener andenes y palets
+        // ✅ CORRECCIÓN: Contar andenes REALES únicos (sin estimaciones)
         var eventosAndenes = await _context.EventosCarga
             .Where(e => e.TurnoProduccionID == turnoId && e.TipoEvento == "ANDEN")
             .Select(e => e.ZonaCarga)
             .Distinct()
             .CountAsync();
 
+        _logger.LogInformation($"📊 Turno {turnoId}: Andenes distintos registrados = {eventosAndenes}");
+
         var eventosPalets = await _context.EventosCarga
             .Where(e => e.TurnoProduccionID == turnoId && e.TipoEvento == "PALET")
             .CountAsync();
 
-        // ✅ CORRECCIÓN: Calcular palets basado en 40 bolsas por palet
-        var paletsCalculados = bolsasNetas / 40;  // Cambiar de 50 a 40
+        // ✅ Calcular palets basado en 40 bolsas por palet
+        var paletsCalculados = bolsasNetas / 40;
         
         // Si hay eventos registrados, usar ese valor; sino usar el calculado
         var paletsFinales = eventosPalets > 0 ? eventosPalets : paletsCalculados;
-        
-        // ✅ CORRECCIÓN: Si no hay eventos de andenes pero sí producción, asignar valor estimado
-        if (eventosAndenes == 0 && bolsasNetas > 0)
-        {
-            eventosAndenes = Math.Max(1, (int)Math.Ceiling((decimal)bolsasNetas / 1000)); // Estimar 1 anden cada ~1000 bolsas
-        }
 
         return new MetricasTurnoDto
         {
@@ -303,8 +299,8 @@ public class ExportController : ControllerBase
             FactorProduccion = Math.Round(factorProduccion, 2),
             CumplimientoHoras = Math.Round((decimal)(horasProductivas.TotalHours / horasTeoricasTurno.TotalHours * 100), 2),
             CumplimientoProduccion = Math.Round(factorProduccion, 2),
-            CantidadAndenes = eventosAndenes,
-            PaletsRealizados = paletsFinales,  // Usar el valor corregido
+            CantidadAndenes = eventosAndenes, // ✅ Valor real sin estimaciones
+            PaletsRealizados = paletsFinales,
             PaletsObjetivoTurno = 213, // 640/3 ≈ 213
             PaletsObjetivoDiario = 640,
             CumplimientoPalets = paletsFinales > 0 ? Math.Round((decimal)paletsFinales / 213m * 100m, 2) : 0m
