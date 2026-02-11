@@ -47,12 +47,32 @@ jobs:
         docker push ${{ env.REGISTRY }}/${{ env.WEB_IMAGE_NAME }}:${{ github.sha }}
         docker push ${{ env.REGISTRY }}/${{ env.WEB_IMAGE_NAME }}:latest
 
+    - name: Configure API environment variables
+      uses: azure/CLI@v1
+      with:
+        inlineScript: |
+          az containerapp update \
+            --name cemento-api \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --set-env-vars \
+              "TZ=America/Asuncion" \
+              "ASPNETCORE_ENVIRONMENT=Production"
+
     - name: Deploy API to Azure Container Apps
       uses: azure/container-apps-deploy-action@v1
       with:
         containerAppName: cemento-api
         resourceGroup: ${{ env.RESOURCE_GROUP }}
         imageToDeploy: ${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}:${{ github.sha }}
+
+    - name: Configure Web environment variables
+      uses: azure/CLI@v1
+      with:
+        inlineScript: |
+          az containerapp update \
+            --name cemento-web \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --set-env-vars "TZ=America/Asuncion"
 
     - name: Deploy Web to Azure Container Apps
       uses: azure/container-apps-deploy-action@v1
