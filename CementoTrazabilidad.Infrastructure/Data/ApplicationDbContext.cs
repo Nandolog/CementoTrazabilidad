@@ -21,6 +21,7 @@ namespace CementoTrazabilidad.Infrastructure.Data
         public DbSet<LoteProveedorBolsa> LotesProveedorBolsa { get; set; }
         public DbSet<RegistroDefectoBolsa> RegistrosDefectosBolsas { get; set; }
         public DbSet<LoteProduccion> LotesProduccion { get; set; } // Sin 's' al final
+        public DbSet<RegistroStockPalets> RegistrosStockPalets { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -261,6 +262,31 @@ namespace CementoTrazabilidad.Infrastructure.Data
                 entity.HasIndex(e => e.FechaHoraInicio);
                 entity.HasIndex(e => e.FechaHoraFin);
                 entity.HasIndex(e => e.NumeroLote).IsUnique();
+            });
+
+            // Configurar RegistroStockPalets
+            modelBuilder.Entity<RegistroStockPalets>(entity =>
+            {
+                entity.HasKey(e => e.RegistroStockPaletsID);
+                
+                entity.HasOne(e => e.TurnoProduccion)
+                    .WithMany()
+                    .HasForeignKey(e => e.TurnoProduccionID)
+                    .OnDelete(DeleteBehavior.Restrict);
+                
+                entity.HasOne(e => e.PersonalRegistro)
+                    .WithMany()
+                    .HasForeignKey(e => e.PersonalID)
+                    .OnDelete(DeleteBehavior.Restrict);
+                
+                entity.Property(e => e.ObservacionesInicio)
+                    .HasMaxLength(500);
+                
+                entity.Property(e => e.ObservacionesFin)
+                    .HasMaxLength(500);
+                
+                // Índices para búsquedas rápidas
+                entity.HasIndex(e => new { e.TurnoProduccionID, e.Activo });
             });
 
             // ✅ Datos semilla para proveedores
