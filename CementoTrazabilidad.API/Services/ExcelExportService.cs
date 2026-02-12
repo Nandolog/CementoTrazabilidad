@@ -83,7 +83,7 @@ public class ExcelExportService : IExcelExportService
         row++;
         var dataKPIs = new[]
         {
-            new { Indicador = "Factor de Corrección (FC)", Valor = $"{metricas.FactorCorreccion:N2}%", Objetivo = "≥90%", Cumplimiento = metricas.FactorCorreccion },
+            new { Indicador = "Factor de Confiabilidad (FC)", Valor = $"{metricas.FactorCorreccion:N2}%", Objetivo = "≥90%", Cumplimiento = metricas.FactorCorreccion },
             new { Indicador = "Factor de Producción (FP)", Valor = $"{metricas.FactorProduccion:N2}%", Objetivo = "≥90%", Cumplimiento = metricas.FactorProduccion },
             new { Indicador = "Toneladas/Hora", Valor = $"{metricas.ToneladasPorHora:N2}", Objetivo = "80.00", Cumplimiento = metricas.CumplimientoProduccion },
             new { Indicador = "Horas Productivas", Valor = $"{metricas.HorasProductivas.TotalHours:N2}h", Objetivo = "7.70h", Cumplimiento = metricas.CumplimientoHoras }

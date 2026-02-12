@@ -276,6 +276,11 @@ public class ExportController : ControllerBase
         // Si hay eventos registrados, usar ese valor; sino usar el calculado
         var paletsFinales = eventosPalets > 0 ? eventosPalets : paletsCalculados;
 
+        // Línea 326 del método CalcularMetricasTurno, cambiar el cálculo:
+        var factorConfiabilidad = horasMarcha.TotalHours > 0 
+            ? (decimal)(horasProductivas.TotalHours / horasMarcha.TotalHours * 100) 
+            : 0m;
+
         return new MetricasTurnoDto
         {
             TurnoProduccionID = turnoId,
@@ -295,7 +300,7 @@ public class ExportController : ControllerBase
             ToneladasProducidas = toneladasProducidas,
             ToneladasPorHora = tnPorHora,
             ToneladasPorHoraObjetivo = 80m,
-            FactorCorreccion = Math.Round(factorCorreccion, 2),
+            FactorCorreccion = Math.Round(factorConfiabilidad, 2),
             FactorProduccion = Math.Round(factorProduccion, 2),
             CumplimientoHoras = Math.Round((decimal)(horasProductivas.TotalHours / horasTeoricasTurno.TotalHours * 100), 2),
             CumplimientoProduccion = Math.Round(factorProduccion, 2),

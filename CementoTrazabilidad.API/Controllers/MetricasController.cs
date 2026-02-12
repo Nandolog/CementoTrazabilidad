@@ -58,19 +58,19 @@ public class MetricasController : ControllerBase
 
             // 5. Calcular tiempos de paradas por tipo
             var paradasMecanicas = paradas
-                .Where(p => p.TipoParada.Contains("Mecanica", StringComparison.OrdinalIgnoreCase))
+                .Where(p => p.TipoParada != null && p.TipoParada.Contains("Mecanica", StringComparison.OrdinalIgnoreCase))
                 .Sum(p => ((p.FechaHoraFin ?? DateTime.Now) - p.FechaHoraInicio).TotalMinutes);
 
             var paradasElectricas = paradas
-                .Where(p => p.TipoParada.Contains("Electrica", StringComparison.OrdinalIgnoreCase))
+                .Where(p => p.TipoParada != null && p.TipoParada.Contains("Electrica", StringComparison.OrdinalIgnoreCase))
                 .Sum(p => ((p.FechaHoraFin ?? DateTime.Now) - p.FechaHoraInicio).TotalMinutes);
 
             var paradasOperativas = paradas
-                .Where(p => p.TipoParada.Contains("Operativa", StringComparison.OrdinalIgnoreCase))
+                .Where(p => p.TipoParada != null && p.TipoParada.Contains("Operativa", StringComparison.OrdinalIgnoreCase))
                 .Sum(p => ((p.FechaHoraFin ?? DateTime.Now) - p.FechaHoraInicio).TotalMinutes);
 
             var paradasCircunstanciales = paradas
-                .Where(p => p.TipoParada.Contains("Circunstancial", StringComparison.OrdinalIgnoreCase))
+                .Where(p => p.TipoParada != null && p.TipoParada.Contains("Circunstancial", StringComparison.OrdinalIgnoreCase))
                 .Sum(p => ((p.FechaHoraFin ?? DateTime.Now) - p.FechaHoraInicio).TotalMinutes);
 
             var totalParadas = TimeSpan.FromMinutes(
@@ -121,7 +121,7 @@ public class MetricasController : ControllerBase
                 : 0m;
 
             // 12. Calcular factores
-            var factorCorreccion = horasMarcha.TotalHours > 0 
+            var factorConfiabilidad = horasMarcha.TotalHours > 0 
                 ? (decimal)(horasProductivas.TotalHours / horasMarcha.TotalHours * 100) 
                 : 0m;
 
@@ -129,46 +129,26 @@ public class MetricasController : ControllerBase
                 ? (tnPorHora / OBJETIVO_TN_POR_HORA * 100) 
                 : 0m;
 
-            // 13. Contar andenes utilizados
-            var andenesUtilizados = eventosCarga
-                .Where(e => e.ZonaCarga.Contains("Anden", StringComparison.OrdinalIgnoreCase))
+            // ✅ 13. CORRECCIÓN: Contar andenes ÚNICOS con TipoEvento == "ANDEN"
+            var andenesUtilizados = await _context.EventosCarga
+                .Where(e => e.TurnoProduccionID == turnoId && e.TipoEvento == "ANDEN")
                 .Select(e => e.ZonaCarga)
                 .Distinct()
-                .Count();
+                .CountAsync();
+
+            _logger.LogInformation($"📦 Turno {turnoId}: Andenes distintos con TipoEvento='ANDEN' = {andenesUtilizados}");
             
-            // ✅ MEJORADO: Estimación más realista de andenes si no hay eventos
-            if (andenesUtilizados == 0 && bolsasNetas > 0)
-            {
-                // Estimación conservadora: 1 anden puede cargar entre 800-1500 bolsas
-                // Usamos un promedio de 1000 bolsas por anden
-                andenesUtilizados = Math.Max(1, (int)Math.Ceiling((decimal)bolsasNetas / 1000m));
-                
-                // Limitar a un máximo razonable (por ejemplo, 10 andenes)
-                andenesUtilizados = Math.Min(andenesUtilizados, 10);
-                
-                _logger.LogInformation($"📦 Andenes estimados: {andenesUtilizados} (basado en {bolsasNetas} bolsas)");
-            }
+            // ✅ 14. Calcular palets (40 bolsas por palet)
+            var paletsCalculados = bolsasNetas / 40;
             
-            // ✅ 14. Calcular palets (CORRECCIÓN: 40 bolsas por palet)
-            var paletsRealizados = bolsasNetas / 40;  // Cambiar de 500 a 40
-            var paletsObjetivoTurno = OBJETIVO_PALETS_DIARIO / 3;
-            
-            // ✅ Si no hay eventos de palets registrados, usar el cálculo estimado
+            // Buscar eventos de tipo PALET
             var eventosPaletsRegistrados = await _context.EventosCarga
                 .Where(e => e.TurnoProduccionID == turnoId && e.TipoEvento == "PALET")
                 .CountAsync();
             
-            // Si hay eventos registrados, usar ese valor; sino usar el calculado
-            if (eventosPaletsRegistrados > 0)
-            {
-                paletsRealizados = eventosPaletsRegistrados;
-            }
-            
-            // Si no hay andenes de eventos pero sí producción, asignar valor estimado
-            if (andenesUtilizados == 0 && bolsasNetas > 0)
-            {
-                andenesUtilizados = Math.Max(1, (int)Math.Ceiling((decimal)bolsasNetas / 1000)); // Estimar 1 anden cada ~1000 bolsas
-            }
+            // Usar eventos registrados si existen, sino usar cálculo
+            var paletsRealizados = eventosPaletsRegistrados > 0 ? eventosPaletsRegistrados : paletsCalculados;
+            var paletsObjetivoTurno = OBJETIVO_PALETS_DIARIO / 3;
 
             // 15. Construir DTO de respuesta
             var metricas = new MetricasTurnoDto
@@ -192,7 +172,7 @@ public class MetricasController : ControllerBase
                 // Actividades
                 TiempoAndenes = Math.Round(tiempoAndenes, 2),
                 TiempoPaletizado = Math.Round(tiempoPaletizado, 2),
-                TiempoCambioCamara = 0, // Por ahora 0, se puede agregar
+                TiempoCambioCamara = 0,
                 TiempoStockLleno = 0,
                 
                 // Producción
@@ -202,14 +182,14 @@ public class MetricasController : ControllerBase
                 ToneladasProducidas = Math.Round(toneladasProducidas, 2),
                 ToneladasPorHora = Math.Round(tnPorHora, 2),
                 
-                // Andenes y Palets
-                CantidadAndenes = andenesUtilizados > 0 ? andenesUtilizados : 4, // Default 4
+                // ✅ Andenes y Palets - SIN ESTIMACIONES NI DEFAULTS
+                CantidadAndenes = andenesUtilizados, // Valor real, puede ser 0
                 PaletsRealizados = paletsRealizados,
                 
                 // KPIs
-                FactorCorreccion = Math.Round(factorCorreccion, 2),
+                FactorCorreccion = Math.Round(factorConfiabilidad, 2), // ✅ Renombrado internamente
                 FactorProduccion = Math.Round(factorProduccion, 2),
-                EficienciaGlobal = Math.Round(factorCorreccion, 2),
+                EficienciaGlobal = Math.Round(factorConfiabilidad, 2),
                 
                 // Objetivos
                 ToneladasPorHoraObjetivo = OBJETIVO_TN_POR_HORA,
@@ -225,7 +205,7 @@ public class MetricasController : ControllerBase
                     : 0m
             };
 
-            _logger.LogInformation($"✅ Métricas calculadas - FC: {metricas.FactorCorreccion}%, FP: {metricas.FactorProduccion}%");
+            _logger.LogInformation($"✅ Métricas calculadas - Andenes: {andenesUtilizados}, Factor Confiabilidad: {metricas.FactorCorreccion}%, FP: {metricas.FactorProduccion}%");
 
             return Ok(new { success = true, data = metricas });
         }
