@@ -72,6 +72,13 @@
                 </a>
             </div>
 
+            <div class="nav-item">
+                <a href="/registro-stock" class="@GetNavClass("/registro-stock")" @onclick="CloseSidebarOnMobile">
+                    <i class="fas fa-pallet"></i>
+                    <span>Stock Palets</span>
+                </a>
+            </div>
+
             <AuthorizeView Roles="Administrador">
                 <Authorized>
                     <div class="nav-separator"></div>
