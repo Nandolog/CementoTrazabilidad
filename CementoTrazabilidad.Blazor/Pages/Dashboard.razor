@@ -38,7 +38,6 @@
                 </button>
             }
             
-            @* ✅ NUEVO: Botón de Exportación Mensual *@
             <button class="btn btn-sm btn-info ms-2" @onclick="ExportarMensual">
                 <i class="fas fa-calendar-alt me-1"></i> Exportar Mes Completo
             </button>
@@ -56,7 +55,7 @@
     }
     else
     {
-        <!-- ✅ SECCIÓN 1: KPIs PRINCIPALES -->
+        <!-- ✅ FILA 1: KPIs PRINCIPALES (4 cards) -->
         <div class="row mb-4">
             <div class="col-xl-3 col-md-6 mb-3">
                 <div class="card border-left-primary shadow h-100">
@@ -132,7 +131,7 @@
                 <div class="card border-left-warning shadow h-100">
                     <div class="card-body">
                         <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
-                            Producción
+                            Producción Total
                         </div>
                         <div class="h5 mb-0 font-weight-bold text-gray-800">
                             @if (metricas != null)
@@ -151,114 +150,13 @@
             </div>
         </div>
 
-        <!-- ✅ SECCION: CONTROL DE STOCK -->
-        <div class="col-lg-4">
-            <div class="card shadow">
-                <div class="card-header bg-info text-white">
-                    <h6 class="mb-0">
-                        <i class="fas fa-pallet me-2"></i>Stock de Palets (C32 / F40)
-                    </h6>
-                </div>
-                <div class="card-body">
-                    @if (stockPalets != null)
-                    {
-                        <!-- Stock Inicial -->
-                        <div class="mb-3">
-                            <h6 class="text-muted mb-2">Stock Inicial</h6>
-                            <div class="row text-center">
-                                <div class="col-6">
-                                    <p class="mb-0 text-info">
-                                        <i class="fas fa-box me-1"></i><strong>C32</strong>
-                                    </p>
-                                    <h4 class="mb-0">@stockPalets.StockInicialC32</h4>
-                                </div>
-                                <div class="col-6">
-                                    <p class="mb-0 text-success">
-                                        <i class="fas fa-box me-1"></i><strong>F40</strong>
-                                    </p>
-                                    <h4 class="mb-0">@stockPalets.StockInicialF40</h4>
-                                </div>
-                            </div>
-                        </div>
-
-                        @if (stockPalets.StockFinalC32.HasValue && stockPalets.StockFinalF40.HasValue)
-                        {
-                            <hr />
-
-                            <!-- Stock Final -->
-                            <div class="mb-3">
-                                <h6 class="text-muted mb-2">Stock Final</h6>
-                                <div class="row text-center">
-                                    <div class="col-6">
-                                        <p class="mb-0 text-info"><strong>C32</strong></p>
-                                        <h4 class="mb-0">@stockPalets.StockFinalC32</h4>
-                                    </div>
-                                    <div class="col-6">
-                                        <p class="mb-0 text-success"><strong>F40</strong></p>
-                                        <h4 class="mb-0">@stockPalets.StockFinalF40</h4>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <hr />
-
-                            <!-- Producción Neta -->
-                            <div class="alert alert-success mb-0">
-                                <h6 class="mb-2">
-                                    <i class="fas fa-arrow-trend-up me-1"></i>Producción Neta
-                                </h6>
-                                <div class="row text-center">
-                                    <div class="col-6">
-                                        <p class="mb-0"><small>C32</small></p>
-                                        <h5 class="mb-0">
-                                            <span class="badge @(stockPalets.ProduccionNetaC32 >= 0 ? "bg-success" : "bg-danger")">
-                                                @stockPalets.ProduccionNetaC32.ToString("+#;-#;0")
-                                            </span>
-                                        </h5>
-                                    </div>
-                                    <div class="col-6">
-                                        <p class="mb-0"><small>F40</small></p>
-                                        <h5 class="mb-0">
-                                            <span class="badge @(stockPalets.ProduccionNetaF40 >= 0 ? "bg-success" : "bg-danger")">
-                                                @stockPalets.ProduccionNetaF40.ToString("+#;-#;0")
-                                            </span>
-                                        </h5>
-                                    </div>
-                                </div>
-                                <hr class="my-2" />
-                                <p class="text-center mb-0">
-                                    <strong>Total:</strong>
-                                    <span class="badge bg-primary fs-6">
-                                        @stockPalets.ProduccionTotalNeta palets
-                                    </span>
-                                </p>
-                            </div>
-                        }
-                        else
-                        {
-                            <div class="alert alert-warning mb-0">
-                                <i class="fas fa-hourglass-half me-1"></i>
-                                <small>Stock final pendiente de registro</small>
-                            </div>
-                        }
-                    }
-                    else
-                    {
-                        <div class="alert alert-info mb-0">
-                            <i class="fas fa-info-circle me-1"></i>
-                            <small>No hay stock registrado para este turno</small>
-                        </div>
-                    }
-                </div>
-            </div>
-        </div>
-
-        <!-- ✅ SECCIÓN 2: TABLA DE MÉTRICAS ESTILO EXCEL -->
         @if (turnoActual != null && metricas != null)
         {
+            <!-- ✅ FILA 2: TIEMPOS + PRODUCCIÓN + STOCK (3 columnas iguales) -->
             <div class="row mb-4">
-                <div class="col-lg-6">
-                    <div class="card shadow">
+                <!-- COLUMNA 1: Tiempos del Turno -->
+                <div class="col-lg-4 mb-3">
+                    <div class="card shadow h-100">
                         <div class="card-header bg-primary text-white">
                             <h6 class="mb-0">
                                 <i class="fas fa-clock me-2"></i>Tiempos del Turno
@@ -270,29 +168,26 @@
                                     <tr>
                                         <td class="fw-bold">Horas de Marcha</td>
                                         <td class="text-end">@FormatearHoras(metricas.HorasMarcha)</td>
-                                        <td class="text-end text-muted">@metricas.HorasMarcha.TotalHours.ToString("N2")h</td>
                                     </tr>
                                     <tr class="table-success">
                                         <td class="fw-bold">Horas Productivas</td>
                                         <td class="text-end fw-bold">@FormatearHoras(metricas.HorasProductivas)</td>
-                                        <td class="text-end fw-bold">@metricas.HorasProductivas.TotalHours.ToString("N2")h</td>
                                     </tr>
                                     <tr class="table-info">
                                         <td class="fw-bold">Objetivo Horas</td>
                                         <td class="text-end">@FormatearHoras(metricas.HorasProductivasObjetivo)</td>
-                                        <td class="text-end">@metricas.HorasProductivasObjetivo.TotalHours.ToString("N2")h</td>
                                     </tr>
                                     <tr>
-                                        <td class="fw-bold">Factor de Corrección (FC)</td>
-                                        <td class="text-end" colspan="2">
+                                        <td class="fw-bold">Factor de Corrección</td>
+                                        <td class="text-end">
                                             <span class="badge @GetBadgeCumplimiento(metricas.FactorCorreccion) fs-6">
                                                 @metricas.FactorCorreccion.ToString("N2")%
                                             </span>
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td class="fw-bold">Cumplimiento Horas</td>
-                                        <td class="text-end" colspan="2">
+                                        <td class="fw-bold">Cumplimiento</td>
+                                        <td class="text-end">
                                             <span class="badge @GetBadgeCumplimiento(metricas.CumplimientoHoras) fs-6">
                                                 @metricas.CumplimientoHoras.ToString("N2")%
                                             </span>
@@ -304,8 +199,9 @@
                     </div>
                 </div>
 
-                <div class="col-lg-6">
-                    <div class="card shadow">
+                <!-- COLUMNA 2: Producción y Rendimiento -->
+                <div class="col-lg-4 mb-3">
+                    <div class="card shadow h-100">
                         <div class="card-header bg-success text-white">
                             <h6 class="mb-0">
                                 <i class="fas fa-industry me-2"></i>Producción y Rendimiento
@@ -316,29 +212,27 @@
                                 <tbody>
                                     <tr>
                                         <td class="fw-bold">Bolsas Realizadas</td>
-                                        <td class="text-end" colspan="2">
+                                        <td class="text-end">
                                             <strong>@metricas.BolsasRealizadas.ToString("N0")</strong>
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td class="fw-bold">Toneladas Producidas</td>
-                                        <td class="text-end" colspan="2">
+                                        <td class="fw-bold">Toneladas</td>
+                                        <td class="text-end">
                                             <strong>@metricas.ToneladasProducidas.ToString("N2") Tn</strong>
                                         </td>
                                     </tr>
                                     <tr class="table-success">
                                         <td class="fw-bold">Tn/h Real</td>
                                         <td class="text-end fw-bold">@metricas.ToneladasPorHora.ToString("N2")</td>
-                                        <td class="text-end"></td>
                                     </tr>
                                     <tr class="table-info">
                                         <td class="fw-bold">Tn/h Objetivo</td>
                                         <td class="text-end">@metricas.ToneladasPorHoraObjetivo.ToString("N2")</td>
-                                        <td class="text-end"></td>
                                     </tr>
                                     <tr>
-                                        <td class="fw-bold">Factor de Producción (FP)</td>
-                                        <td class="text-end" colspan="2">
+                                        <td class="fw-bold">Factor Producción</td>
+                                        <td class="text-end">
                                             <span class="badge @GetBadgeCumplimiento(metricas.FactorProduccion) fs-6">
                                                 @metricas.FactorProduccion.ToString("N2")%
                                             </span>
@@ -349,12 +243,92 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- COLUMNA 3: Stock de Palets -->
+                <div class="col-lg-4 mb-3">
+                    <div class="card shadow h-100">
+                        <div class="card-header bg-info text-white">
+                            <h6 class="mb-0">
+                                <i class="fas fa-pallet me-2"></i>Stock de Palets
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            @if (stockPalets != null)
+                            {
+                                <table class="table table-sm table-borderless mb-0">
+                                    <tbody>
+                                        <tr>
+                                            <td class="fw-bold text-muted">Stock Inicial</td>
+                                            <td class="text-end">
+                                                <span class="badge bg-info">C32: @stockPalets.StockInicialC32</span>
+                                            </td>
+                                            <td class="text-end">
+                                                <span class="badge bg-success">F40: @stockPalets.StockInicialF40</span>
+                                            </td>
+                                        </tr>
+                                        @if (stockPalets.StockFinalC32.HasValue && stockPalets.StockFinalF40.HasValue)
+                                        {
+                                            <tr>
+                                                <td class="fw-bold text-muted">Stock Final</td>
+                                                <td class="text-end">
+                                                    <span class="badge bg-info">C32: @stockPalets.StockFinalC32</span>
+                                                </td>
+                                                <td class="text-end">
+                                                    <span class="badge bg-success">F40: @stockPalets.StockFinalF40</span>
+                                                </td>
+                                            </tr>
+                                            <tr class="table-light">
+                                                <td class="fw-bold">Producción Neta</td>
+                                                <td class="text-end">
+                                                    <span class="badge @(stockPalets.ProduccionNetaC32 >= 0 ? "bg-success" : "bg-danger")">
+                                                        @stockPalets.ProduccionNetaC32.ToString("+#;-#;0")
+                                                    </span>
+                                                </td>
+                                                <td class="text-end">
+                                                    <span class="badge @(stockPalets.ProduccionNetaF40 >= 0 ? "bg-success" : "bg-danger")">
+                                                        @stockPalets.ProduccionNetaF40.ToString("+#;-#;0")
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                            <tr class="table-primary">
+                                                <td colspan="3" class="text-center fw-bold">
+                                                    <i class="fas fa-industry me-2"></i>TOTAL: 
+                                                    <span class="badge bg-primary fs-6 ms-2">
+                                                        @stockPalets.ProduccionTotalNeta palets
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        }
+                                        else
+                                        {
+                                            <tr>
+                                                <td colspan="3" class="text-center">
+                                                    <div class="alert alert-warning mb-0 py-2">
+                                                        <small><i class="fas fa-hourglass-half me-1"></i>Stock final pendiente</small>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            }
+                            else
+                            {
+                                <div class="alert alert-info mb-0">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    <small>No hay stock registrado</small>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <!-- ✅ SECCIÓN 3: PARADAS CLASIFICADAS -->
+            <!-- ✅ FILA 3: PARADAS + ANDENES (2 columnas desiguales 8-4) -->
             <div class="row mb-4">
-                <div class="col-lg-8">
-                    <div class="card shadow">
+                <!-- Paradas Clasificadas (más ancho) -->
+                <div class="col-lg-8 mb-3">
+                    <div class="card shadow h-100">
                         <div class="card-header bg-danger text-white">
                             <h6 class="mb-0">
                                 <i class="fas fa-pause-circle me-2"></i>Paradas del Turno (Clasificadas)
@@ -407,8 +381,9 @@
                     </div>
                 </div>
 
-                <div class="col-lg-4">
-                    <div class="card shadow">
+                <!-- Andenes y Palets (más angosto) -->
+                <div class="col-lg-4 mb-3">
+                    <div class="card shadow h-100">
                         <div class="card-header bg-warning text-dark">
                             <h6 class="mb-0">
                                 <i class="fas fa-pallet me-2"></i>Andenes y Palets
@@ -416,12 +391,7 @@
                         </div>
                         <div class="card-body">
                             <div class="mb-3">
-                                <label class="text-xs text-uppercase fw-bold text-muted">
-                                    Cantidad Andenes
-                                    <i class="fas fa-info-circle text-muted ms-1" 
-                                       title="Valor variable según demanda del cliente" 
-                                       data-bs-toggle="tooltip"></i>
-                                </label>
+                                <label class="text-xs text-uppercase fw-bold text-muted">Cantidad Andenes</label>
                                 <h3 class="mb-0">@metricas.CantidadAndenes</h3>
                                 <small class="text-muted">
                                     <i class="fas fa-box me-1"></i>
@@ -429,7 +399,7 @@
                                 </small>
                             </div>
                             <hr />
-                            <div class="row">
+                            <div class="row mb-2">
                                 <div class="col-6">
                                     <label class="text-xs text-uppercase fw-bold text-muted">Palets Real</label>
                                     <h4 class="mb-0">@metricas.PaletsRealizados</h4>
@@ -439,7 +409,7 @@
                                     <h4 class="mb-0 text-muted">@metricas.PaletsObjetivoTurno</h4>
                                 </div>
                             </div>
-                            <div class="progress mt-3" style="height: 25px;">
+                            <div class="progress mb-2" style="height: 25px;">
                                 <div class="progress-bar @GetColorBarraCumplimiento(metricas.CumplimientoPalets)" 
                                      role="progressbar" 
                                      style="width: @Math.Min(metricas.CumplimientoPalets, 100)%">
@@ -455,7 +425,7 @@
                 </div>
             </div>
 
-            <!-- ✅ NUEVA SECCIÓN: CONSUMO DE BOLSAS DETALLADO -->
+            <!-- ✅ FILA 4: CONSUMO DE BOLSAS (full width) -->
             <div class="row mb-4">
                 <div class="col-12">
                     <div class="card shadow">
@@ -470,45 +440,45 @@
                                 <div class="row mb-3">
                                     <div class="col-md-3">
                                         <div class="card bg-light">
-                                            <div class="card-body text-center">
-                                                <h6 class="text-muted mb-2">Total Bolsas</h6>
+                                            <div class="card-body text-center py-2">
+                                                <h6 class="text-muted mb-1">Total Bolsas</h6>
                                                 <h3 class="mb-0 text-primary">@consumosDetallados.Sum(c => c.CantidadBolsas).ToString("N0")</h3>
                                             </div>
                                         </div>
                                     </div>
                                     <div class="col-md-3">
                                         <div class="card bg-light">
-                                            <div class="card-body text-center">
-                                                <h6 class="text-muted mb-2">Defectuosas</h6>
+                                            <div class="card-body text-center py-2">
+                                                <h6 class="text-muted mb-1">Defectuosas</h6>
                                                 <h3 class="mb-0 text-warning">@consumosDetallados.Sum(c => c.BolsasDefectuosas).ToString("N0")</h3>
                                             </div>
                                         </div>
                                     </div>
                                     <div class="col-md-3">
                                         <div class="card bg-light">
-                                            <div class="card-body text-center">
-                                                <h6 class="text-muted mb-2">Bolsas C32</h6>
+                                            <div class="card-body text-center py-2">
+                                                <h6 class="text-muted mb-1">Bolsas C32</h6>
                                                 <h3 class="mb-0 text-info">@consumosDetallados.Where(c => c.TipoCemento == "C32").Sum(c => c.CantidadBolsas).ToString("N0")</h3>
                                             </div>
                                         </div>
                                     </div>
                                     <div class="col-md-3">
                                         <div class="card bg-light">
-                                            <div class="card-body text-center">
-                                                <h6 class="text-muted mb-2">Bolsas F40</h6>
+                                            <div class="card-body text-center py-2">
+                                                <h6 class="text-muted mb-1">Bolsas F40</h6>
                                                 <h3 class="mb-0 text-success">@consumosDetallados.Where(c => c.TipoCemento == "F40").Sum(c => c.CantidadBolsas).ToString("N0")</h3>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div class="table-responsive">
+                                <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
                                     <table class="table table-sm table-hover">
-                                        <thead class="table-light">
+                                        <thead class="table-light sticky-top">
                                             <tr>
                                                 <th><i class="fas fa-clock me-1"></i>Fecha/Hora</th>
                                                 <th><i class="fas fa-truck me-1"></i>Proveedor</th>
-                                                <th><i class="fas fa-cube me-1"></i>Tipo Cemento</th>
+                                                <th><i class="fas fa-cube me-1"></i>Tipo</th>
                                                 <th class="text-end"><i class="fas fa-box me-1"></i>Cantidad</th>
                                                 <th class="text-end"><i class="fas fa-exclamation-triangle me-1"></i>Defectuosas</th>
                                                 <th><i class="fas fa-barcode me-1"></i>Lote</th>
@@ -569,7 +539,7 @@
                                                 </tr>
                                             }
                                         </tbody>
-                                        <tfoot class="table-active">
+                                        <tfoot class="table-active sticky-bottom">
                                             <tr class="fw-bold">
                                                 <td colspan="3" class="text-end">TOTALES:</td>
                                                 <td class="text-end text-primary fs-5">@consumosDetallados.Sum(c => c.CantidadBolsas).ToString("N0")</td>
@@ -590,12 +560,26 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Gráfico de Paradas (lado derecho) -->
+                <div class="col-lg-4 mb-3">
+                    <div class="card shadow h-100">
+                        <div class="card-header bg-warning text-dark">
+                            <h6 class="mb-0">
+                                <i class="fas fa-chart-bar me-2"></i>Paradas por Tipo
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="chartParadasDetalladas" style="max-height: 280px;"></canvas>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <!-- ✅ SECCIÓN 4: DISTRIBUCIÓN DEL TIEMPO (COMPUESTO C32) -->
+            <!-- ✅ FILA 5: DISTRIBUCIÓN DEL TIEMPO + CUMPLIMIENTO (2 columnas iguales) -->
             <div class="row mb-4">
-                <div class="col-lg-6">
-                    <div class="card shadow">
+                <div class="col-lg-6 mb-3">
+                    <div class="card shadow h-100">
                         <div class="card-header bg-info text-white">
                             <h6 class="mb-0">
                                 <i class="fas fa-chart-pie me-2"></i>Distribución del Tiempo
@@ -609,7 +593,6 @@
                                         <tr>
                                             <th>Actividad</th>
                                             <th class="text-end">Tiempo</th>
-                                            <th class="text-end">Horas</th>
                                             <th class="text-end">%</th>
                                         </tr>
                                     </thead>
@@ -622,13 +605,12 @@
                                                     @item.Actividad
                                                 </td>
                                                 <td class="text-end">@FormatearMinutosHHMM(item.Minutos)</td>
-                                                <td class="text-end">@item.Horas.ToString("N2")</td>
                                                 <td class="text-end fw-bold">@item.Porcentaje.ToString("N1")%</td>
                                             </tr>
                                         }
                                     </tbody>
                                 </table>
-                                <canvas id="chartDistribucionTiempo" style="max-height: 250px;"></canvas>
+                                <canvas id="chartDistribucionTiempo" style="max-height: 200px;"></canvas>
                             }
                             else
                             {
@@ -638,70 +620,53 @@
                     </div>
                 </div>
 
-                <div class="col-lg-6">
-                    <div class="card shadow">
-                        <div class="card-header bg-warning text-dark">
-                            <h6 class="mb-0">
-                                <i class="fas fa-chart-bar me-2"></i>Paradas por Tipo (Detalle)
-                            </h6>
-                        </div>
-                        <div class="card-body">
-                            <canvas id="chartParadasDetalladas" style="max-height: 350px;"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ✅ SECCIÓN 5: COMPARACIÓN CON OBJETIVOS -->
-            <div class="row mb-4">
-                <div class="col-12">
-                    <div class="card shadow">
+                <!-- Cumplimiento de Objetivos -->
+                <div class="col-lg-6 mb-3">
+                    <div class="card shadow h-100">
                         <div class="card-header bg-primary text-white">
                             <h6 class="mb-0">
                                 <i class="fas fa-crosshairs me-2"></i>Cumplimiento de Objetivos
                             </h6>
                         </div>
                         <div class="card-body">
-                            <div class="row">
-                                <div class="col-md-4 mb-3">
-                                    <h6 class="text-muted">Producción (Tn/h)</h6>
-                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <span>Real: <strong>@metricas.ToneladasPorHora.ToString("N2")</strong></span>
-                                        <span class="text-muted">Obj: @metricas.ToneladasPorHoraObjetivo</span>
-                                    </div>
-                                    <div class="progress" style="height: 30px;">
-                                        <div class="progress-bar @GetColorBarraCumplimiento(metricas.CumplimientoProduccion)" 
-                                             style="width: @Math.Min(metricas.CumplimientoProduccion, 100)%">
-                                            @metricas.CumplimientoProduccion.ToString("N1")%
-                                        </div>
+                            <div class="mb-3">
+                                <h6 class="text-muted">Producción (Tn/h)</h6>
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span>Real: <strong>@metricas.ToneladasPorHora.ToString("N2")</strong></span>
+                                    <span class="text-muted">Obj: @metricas.ToneladasPorHoraObjetivo</span>
+                                </div>
+                                <div class="progress" style="height: 25px;">
+                                    <div class="progress-bar @GetColorBarraCumplimiento(metricas.CumplimientoProduccion)" 
+                                         style="width: @Math.Min(metricas.CumplimientoProduccion, 100)%">
+                                        @metricas.CumplimientoProduccion.ToString("N1")%
                                     </div>
                                 </div>
+                            </div>
 
-                                <div class="col-md-4 mb-3">
-                                    <h6 class="text-muted">Horas Productivas</h6>
-                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <span>Real: <strong>@metricas.HorasProductivas.TotalHours.ToString("N2")h</strong></span>
-                                        <span class="text-muted">Obj: @metricas.HorasProductivasObjetivo.TotalHours.ToString("N1")h</span>
-                                    </div>
-                                    <div class="progress" style="height: 30px;">
-                                        <div class="progress-bar @GetColorBarraCumplimiento(metricas.CumplimientoHoras)" 
-                                             style="width: @Math.Min(metricas.CumplimientoHoras, 100)%">
-                                            @metricas.CumplimientoHoras.ToString("N1")%
-                                        </div>
+                            <div class="mb-3">
+                                <h6 class="text-muted">Horas Productivas</h6>
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span>Real: <strong>@metricas.HorasProductivas.TotalHours.ToString("N2")h</strong></span>
+                                    <span class="text-muted">Obj: @metricas.HorasProductivasObjetivo.TotalHours.ToString("N1")h</span>
+                                </div>
+                                <div class="progress" style="height: 25px;">
+                                    <div class="progress-bar @GetColorBarraCumplimiento(metricas.CumplimientoHoras)" 
+                                         style="width: @Math.Min(metricas.CumplimientoHoras, 100)%">
+                                        @metricas.CumplimientoHoras.ToString("N1")%
                                     </div>
                                 </div>
+                            </div>
 
-                                <div class="col-md-4 mb-3">
-                                    <h6 class="text-muted">Palets del Turno</h6>
-                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <span>Real: <strong>@metricas.PaletsRealizados</strong></span>
-                                        <span class="text-muted">Obj: @metricas.PaletsObjetivoTurno</span>
-                                    </div>
-                                    <div class="progress" style="height: 30px;">
-                                        <div class="progress-bar @GetColorBarraCumplimiento(metricas.CumplimientoPalets)" 
-                                             style="width: @Math.Min(metricas.CumplimientoPalets, 100)%">
-                                            @metricas.CumplimientoPalets.ToString("N1")%
-                                        </div>
+                            <div class="mb-0">
+                                <h6 class="text-muted">Palets del Turno</h6>
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span>Real: <strong>@metricas.PaletsRealizados</strong></span>
+                                    <span class="text-muted">Obj: @metricas.PaletsObjetivoTurno</span>
+                                </div>
+                                <div class="progress" style="height: 25px;">
+                                    <div class="progress-bar @GetColorBarraCumplimiento(metricas.CumplimientoPalets)" 
+                                         style="width: @Math.Min(metricas.CumplimientoPalets, 100)%">
+                                        @metricas.CumplimientoPalets.ToString("N1")%
                                     </div>
                                 </div>
                             </div>
@@ -709,151 +674,131 @@
                     </div>
                 </div>
             </div>
-        }
 
-        <!-- ✅ SECCIÓN 6: GRÁFICOS COMPARATIVOS -->
-        <div class="row mb-4">
-            <div class="col-lg-12">
-                <div class="card shadow">
-                    <div class="card-header bg-success text-white">
-                        <h6 class="mb-0">
-                            <i class="fas fa-chart-line me-2"></i>Comparación Real vs Objetivo
-                        </h6>
-                    </div>
-                    <div class="card-body">
-                        <canvas id="chartComparacion" style="max-height: 300px;"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ✅ NUEVA SECCIÓN: ACTIVIDAD EN TIEMPO REAL -->
-        @if (turnoActual != null && historialEventosCarga != null && historialEventosCarga.Any())
-        {
-            var ultimoEvento = historialEventosCarga.OrderByDescending(e => e.FechaHora).FirstOrDefault();
-            
-            <div class="row mb-4">
-                <div class="col-12">
-                    <div class="card shadow border-left-info">
-                        <div class="card-header bg-gradient-info text-white">
-                            <h6 class="mb-0">
-                                <i class="fas fa-broadcast-tower me-2 fa-pulse"></i>
-                                Actividad en Tiempo Real
-                            </h6>
-                        </div>
-                        <div class="card-body">
-                            @if (ultimoEvento != null)
-                            {
-                                var iconoEvento = ultimoEvento.TipoEvento == "ANDEN" ? "fa-warehouse" : "fa-boxes-stacked";
-                                var colorEvento = ultimoEvento.TipoEvento == "ANDEN" ? "primary" : "success";
-                                
-                                <div class="row align-items-center">
-                                    <div class="col-md-2 text-center">
-                                        <i class="fas @iconoEvento fa-3x text-@colorEvento"></i>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <h4 class="mb-1">
-                                            <span class="badge bg-@colorEvento">@ultimoEvento.TipoEvento</span>
-                                            @ultimoEvento.ZonaCarga
-                                        </h4>
-                                        <p class="mb-1">
-                                            <i class="fas fa-clock me-1"></i>
-                                            <strong>Última actividad:</strong> @ultimoEvento.FechaHora.ToString("HH:mm:ss")
-                                        </p>
-                                        @if (!string.IsNullOrEmpty(ultimoEvento.Observaciones))
-                                        {
-                                            <p class="text-muted mb-0">
-                                                <i class="fas fa-comment me-1"></i>@ultimoEvento.Observaciones
-                                            </p>
-                                        }
-                                    </div>
-                                    <div class="col-md-4">
-                                        <div class="alert alert-info mb-0">
-                                            <i class="fas fa-info-circle me-1"></i>
-                                            <strong>Tipo de carga:</strong> @ultimoEvento.TipoCarga
-                                        </div>
-                                    </div>
-                                </div>
-                            }
-                            else
-                            {
-                                <div class="text-center text-muted py-3">
-                                    <i class="fas fa-pause-circle fa-2x mb-2"></i>
-                                    <p>No hay actividad reciente registrada</p>
-                                </div>
-                            }
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Historial reciente de eventos -->
+            <!-- ✅ FILA 6: GRÁFICO COMPARATIVO (full width) -->
             <div class="row mb-4">
                 <div class="col-12">
                     <div class="card shadow">
-                        <div class="card-header bg-secondary text-white">
+                        <div class="card-header bg-success text-white">
                             <h6 class="mb-0">
-                                <i class="fas fa-history me-2"></i>Historial de Eventos de Carga
+                                <i class="fas fa-chart-line me-2"></i>Comparación Real vs Objetivo
                             </h6>
                         </div>
                         <div class="card-body">
-                            <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
-                                <table class="table table-sm table-hover mb-0">
-                                    <thead class="table-light sticky-top">
-                                        <tr>
-                                            <th><i class="fas fa-calendar-alt me-1"></i>Fecha/Hora</th>
-                                            <th><i class="fas fa-tag me-1"></i>Tipo</th>
-                                            <th><i class="fas fa-location-dot me-1"></i>Zona</th>
-                                            <th><i class="fas fa-truck-loading me-1"></i>Tipo Carga</th>
-                                            <th><i class="fas fa-comment-dots me-1"></i>Observaciones</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach (var evento in historialEventosCarga.OrderByDescending(e => e.FechaHora).Take(20))
-                                        {
-                                            var badgeClass = evento.TipoEvento == "ANDEN" ? "bg-primary" : "bg-success";
-                                            var iconClass = evento.TipoEvento == "ANDEN" ? "fa-warehouse" : "fa-boxes-stacked";
-                                            
-                                            <tr>
-                                                <td class="text-nowrap">
-                                                    <small>@evento.FechaHora.ToString("dd/MM HH:mm:ss")</small>
-                                                </td>
-                                                <td>
-                                                    <span class="badge @badgeClass">
-                                                        <i class="fas @iconClass me-1"></i>@evento.TipoEvento
-                                                    </span>
-                                                </td>
-                                                <td><strong>@evento.ZonaCarga</strong></td>
-                                                <td>
-                                                    <span class="badge bg-info">@evento.TipoCarga</span>
-                                                </td>
-                                                <td>
-                                                    <small class="text-muted">@(evento.Observaciones ?? "-")</small>
-                                                </td>
-                                            </tr>
-                                        }
-                                    </tbody>
-                                </table>
-                            </div>
+                            <canvas id="chartComparacion" style="max-height: 280px;"></canvas>
                         </div>
                     </div>
                 </div>
             </div>
-        }
 
-        <!-- Sección de Registro de Lotes -->
-        @if (turnoActual != null)
-        {
-            <div class="row">
-                <div class="col-lg-12 mb-4">
-                    <div class="card shadow border-left-success">
-                        <div class="card-header bg-success text-white">
-                            <h6 class="mb-0"><i class="fas fa-list-alt me-2"></i>Registro de Lotes</h6>
+            <!-- ✅ FILA 7: ACTIVIDAD EN TIEMPO REAL (solo si hay eventos) -->
+            @if (historialEventosCarga != null && historialEventosCarga.Any())
+            {
+                var ultimoEvento = historialEventosCarga.OrderByDescending(e => e.FechaHora).FirstOrDefault();
+                
+                <div class="row mb-4">
+                    <div class="col-lg-4">
+                        <div class="card shadow border-left-info h-100">
+                            <div class="card-header bg-gradient-info text-white">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-broadcast-tower me-2"></i>Última Actividad
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                @if (ultimoEvento != null)
+                                {
+                                    var iconoEvento = ultimoEvento.TipoEvento == "ANDEN" ? "fa-warehouse" : "fa-boxes-stacked";
+                                    var colorEvento = ultimoEvento.TipoEvento == "ANDEN" ? "primary" : "success";
+                                    
+                                    <div class="text-center mb-3">
+                                        <i class="fas @iconoEvento fa-3x text-@colorEvento"></i>
+                                    </div>
+                                    <h5 class="text-center">
+                                        <span class="badge bg-@colorEvento">@ultimoEvento.TipoEvento</span>
+                                        <br />
+                                        <small class="text-muted">@ultimoEvento.ZonaCarga</small>
+                                    </h5>
+                                    <p class="text-center mb-2">
+                                        <i class="fas fa-clock me-1"></i>
+                                        <strong>@ultimoEvento.FechaHora.ToString("HH:mm:ss")</strong>
+                                    </p>
+                                    @if (!string.IsNullOrEmpty(ultimoEvento.Observaciones))
+                                    {
+                                        <div class="alert alert-info mb-0 py-2">
+                                            <small>@ultimoEvento.Observaciones</small>
+                                        </div>
+                                    }
+                                }
+                            </div>
                         </div>
-                        <div class="card-body">
-                            <h4>
-                                <span class="badge bg-success fs-5">@lotesTurnoActual.Count</span> lote(s) registrado(s)
-                            </h4>
+                    </div>
+
+                    <!-- Historial de Eventos -->
+                    <div class="col-lg-8">
+                        <div class="card shadow h-100">
+                            <div class="card-header bg-secondary text-white">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-history me-2"></i>Historial de Eventos de Carga
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                                    <table class="table table-sm table-hover mb-0">
+                                        <thead class="table-light sticky-top">
+                                            <tr>
+                                                <th><i class="fas fa-calendar-alt me-1"></i>Fecha/Hora</th>
+                                                <th><i class="fas fa-tag me-1"></i>Tipo</th>
+                                                <th><i class="fas fa-location-dot me-1"></i>Zona</th>
+                                                <th><i class="fas fa-truck-loading me-1"></i>Tipo Carga</th>
+                                                <th><i class="fas fa-comment-dots me-1"></i>Observaciones</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var evento in historialEventosCarga.OrderByDescending(e => e.FechaHora).Take(15))
+                                            {
+                                                var badgeClass = evento.TipoEvento == "ANDEN" ? "bg-primary" : "bg-success";
+                                                var iconClass = evento.TipoEvento == "ANDEN" ? "fa-warehouse" : "fa-boxes-stacked";
+                                                
+                                                <tr>
+                                                    <td class="text-nowrap">
+                                                        <small>@evento.FechaHora.ToString("dd/MM HH:mm:ss")</small>
+                                                    </td>
+                                                    <td>
+                                                        <span class="badge @badgeClass">
+                                                            <i class="fas @iconClass me-1"></i>@evento.TipoEvento
+                                                        </span>
+                                                    </td>
+                                                    <td><strong>@evento.ZonaCarga</strong></td>
+                                                    <td>
+                                                        <span class="badge bg-info">@evento.TipoCarga</span>
+                                                    </td>
+                                                    <td>
+                                                        <small class="text-muted">@(evento.Observaciones ?? "-")</small>
+                                                    </td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <!-- ✅ FILA 8: LOTES REGISTRADOS (compacto) -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card shadow border-left-success">
+                        <div class="card-body py-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-list-alt me-2"></i>Lotes Registrados
+                                </h6>
+                                <h4 class="mb-0">
+                                    <span class="badge bg-success fs-5">@lotesTurnoActual.Count</span>
+                                </h4>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -895,7 +840,6 @@
         if (cargando) return;
         cargando = true;
         
-        // ✅ Resetear flag de gráficos para forzar re-renderizado
         _graficosRenderizados = false;
 
         try
@@ -909,14 +853,10 @@
             {
                 Logger.LogInformation($"🔄 Cargando datos para turno {turnoActual.TurnoProduccionID}");
                 
-                // ✅ Cargar métricas avanzadas
                 metricas = await MetricasService.GetMetricasTurnoAsync(turnoActual.TurnoProduccionID);
                 paradasDetalladas = await MetricasService.GetParadasDetalladasAsync(turnoActual.TurnoProduccionID);
                 distribucionTiempo = await MetricasService.GetDistribucionTiempoAsync(turnoActual.TurnoProduccionID);
 
-                Logger.LogInformation($"📊 Métricas cargadas: BolsasRealizadas={metricas?.BolsasRealizadas}, Distribución={distribucionTiempo?.Count}");
-
-                // Cargar datos existentes
                 await Task.WhenAll(
                     CargarHistorialCarga(),
                     CargarParadasTurnoActual(),
@@ -925,11 +865,7 @@
 
                 personalEnTurnoActual = await ObtenerCantidadPersonal(turnoActual.TurnoProduccionID);
                 
-                Logger.LogInformation($"✅ Datos cargados: Lotes={lotesTurnoActual.Count}, Bolsas={consumoBolsas}, Eventos={historialEventosCarga?.Count ?? 0}");
-            }
-            else
-            {
-                Logger.LogWarning("⚠️ No hay turno activo");
+                Logger.LogInformation($"✅ Datos cargados completamente");
             }
 
             await CargarCantidadPersonalPorTurno();
@@ -944,40 +880,28 @@
             cargando = false;
             StateHasChanged();
 
-            // ✅ Renderizar gráficos con validación
-            await Task.Delay(500); // Dar tiempo al DOM
+            await Task.Delay(500);
             await RenderizarGraficos();
         }
     }
 
-    // ✅ CORREGIR: Usar endpoint alternativo o manejar error
     private async Task CargarHistorialCarga()
     {
         try
         {
             if (turnoActual == null) return;
             
-            Logger.LogInformation($"📥 Cargando historial de eventos para turno {turnoActual.TurnoProduccionID}");
-            
-            // ✅ CORRECCIÓN: Usar endpoint /historial en lugar de base
             var response = await Http.GetFromJsonAsync<ApiResponse<List<EventoCargaHistorialDto>>>(
                 $"api/eventocarga/turno/{turnoActual.TurnoProduccionID}/historial");
             
             if (response != null && response.Success && response.Data != null)
             {
                 historialEventosCarga = response.Data;
-                Logger.LogInformation($"✅ Cargados {historialEventosCarga.Count} eventos de carga");
             }
             else
             {
                 historialEventosCarga = new List<EventoCargaHistorialDto>();
-                Logger.LogWarning($"⚠️ No se pudieron cargar eventos: {response?.Message}");
             }
-        }
-        catch (HttpRequestException httpEx)
-        {
-            Logger.LogError(httpEx, $"⚠️ Error HTTP al cargar eventos: {httpEx.Message}");
-            historialEventosCarga = new List<EventoCargaHistorialDto>();
         }
         catch (Exception ex)
         {
@@ -993,7 +917,6 @@
             if (turnoActual == null) return;
             
             paradasTurnoActual = await TurnoService.GetParadasTurnoAsync(turnoActual.TurnoProduccionID);
-            Logger.LogInformation($"✅ Cargadas {paradasTurnoActual.Count} paradas");
         }
         catch (Exception ex)
         {
@@ -1008,24 +931,20 @@
         {
             if (turnoActual == null) return;
             
-            Logger.LogInformation($"📦 Cargando lotes y consumos para turno {turnoActual.TurnoProduccionID}");
-            
-            // ✅ Cargar lotes
+            // Cargar lotes
             var responseLotes = await Http.GetFromJsonAsync<ApiResponse<List<LoteDto>>>(
                 $"api/lotes/turno/{turnoActual.TurnoProduccionID}");
             
             if (responseLotes != null && responseLotes.Success)
             {
                 lotesTurnoActual = responseLotes.Data ?? new List<LoteDto>();
-                Logger.LogInformation($"✅ Lotes cargados: {lotesTurnoActual.Count}");
             }
             else
             {
                 lotesTurnoActual = new List<LoteDto>();
-                Logger.LogWarning($"⚠️ Error al cargar lotes: {responseLotes?.Message}");
             }
             
-            // ✅ CORREGIDO: Cargar consumo de bolsas (devuelve List directamente, NO ApiResponse)
+            // Cargar consumo de bolsas
             try
             {
                 var consumosDirectos = await Http.GetFromJsonAsync<List<ConsumoBolsasDTO>>(
@@ -1035,13 +954,11 @@
                 {
                     consumosDetallados = consumosDirectos;
                     consumoBolsas = consumosDetallados.Sum(c => c.CantidadBolsas);
-                    Logger.LogInformation($"✅ Consumo de bolsas cargado: {consumoBolsas} bolsas, {consumosDetallados.Count} registros");
                 }
                 else
                 {
                     consumosDetallados = new List<ConsumoBolsasDTO>();
                     consumoBolsas = 0;
-                    Logger.LogWarning("⚠️ Respuesta de consumos es null");
                 }
             }
             catch (Exception exConsumo)
@@ -1065,7 +982,6 @@
                 else
                 {
                     stockPalets = null;
-                    Logger.LogWarning("⚠️ No hay stock de palets registrado");
                 }
             }
             catch (Exception exStock)
@@ -1121,45 +1037,25 @@
     {
         try
         {
-            Logger.LogInformation("🎨 Iniciando renderizado de gráficos...");
-            
-            // ✅ Validar que haya datos antes de renderizar
-            if (metricas == null)
-            {
-                Logger.LogWarning("⚠️ No hay métricas para renderizar gráficos");
-                return;
-            }
+            if (metricas == null) return;
 
             await JSRuntime.InvokeVoidAsync("limpiarGraficos");
 
-            // ✅ Gráfico de distribución (solo si hay datos)
             if (distribucionTiempo != null && distribucionTiempo.Any())
             {
-                Logger.LogInformation($"📊 Renderizando gráfico de distribución con {distribucionTiempo.Count} elementos");
-                
                 await JSRuntime.InvokeVoidAsync("renderizarGraficoDistribucion",
                     distribucionTiempo.Select(d => d.Actividad).ToArray(),
                     distribucionTiempo.Select(d => (double)d.Minutos).ToArray(),
                     distribucionTiempo.Select(d => d.Color).ToArray()
                 );
             }
-            else
-            {
-                Logger.LogWarning("⚠️ No hay datos de distribución del tiempo");
-            }
 
-            // ✅ Gráfico de paradas detalladas
-            Logger.LogInformation("📊 Renderizando gráfico de paradas detalladas");
-            
             await JSRuntime.InvokeVoidAsync("renderizarGraficoParadasDetalladas",
                 new[] { "Mecánicas", "Eléctricas", "Operativas", "Circunstanciales" },
                 new[] { metricas.ParadasMecanicas, metricas.ParadasElectricas, 
                         metricas.ParadasOperativas, metricas.ParadasCircunstanciales }
             );
 
-            // ✅ Gráfico de comparación Real vs Objetivo
-            Logger.LogInformation("📊 Renderizando gráfico de comparación");
-            
             await JSRuntime.InvokeVoidAsync("renderizarGraficoComparacion",
                 (double)metricas.ToneladasPorHora,
                 (double)metricas.ToneladasPorHoraObjetivo,
@@ -1170,19 +1066,13 @@
             );
 
             _graficosRenderizados = true;
-            Logger.LogInformation("✅ Gráficos renderizados exitosamente");
-        }
-        catch (JSException jsEx)
-        {
-            Logger.LogError(jsEx, $"❌ Error JavaScript al renderizar gráficos: {jsEx.Message}");
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "❌ Error general al renderizar gráficos");
+            Logger.LogError(ex, "❌ Error al renderizar gráficos");
         }
     }
 
-    // Métodos helper para formateo y colores
     private string FormatearHoras(TimeSpan tiempo)
     {
         return $"{(int)tiempo.TotalHours:D2}:{tiempo.Minutes:D2}:{tiempo.Seconds:D2}";
@@ -1301,5 +1191,28 @@
         position: sticky;
         top: 0;
         z-index: 10;
+        background: white;
+    }
+
+    .sticky-bottom {
+        position: sticky;
+        bottom: 0;
+        z-index: 10;
+        background: white;
+    }
+
+    /* Eliminar espacios innecesarios */
+    .card-body {
+        padding: 1rem;
+    }
+
+    /* Hacer que las cards tengan altura consistente */
+    .h-100 {
+        height: 100% !important;
+    }
+
+    /* Mejorar el padding en tablas */
+    .table-sm td, .table-sm th {
+        padding: 0.5rem;
     }
 </style>
