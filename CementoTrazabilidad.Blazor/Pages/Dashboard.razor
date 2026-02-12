@@ -151,6 +151,108 @@
             </div>
         </div>
 
+        <!-- ✅ SECCION: CONTROL DE STOCK -->
+        <div class="col-lg-4">
+            <div class="card shadow">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0">
+                        <i class="fas fa-pallet me-2"></i>Stock de Palets (C32 / F40)
+                    </h6>
+                </div>
+                <div class="card-body">
+                    @if (stockPalets != null)
+                    {
+                        <!-- Stock Inicial -->
+                        <div class="mb-3">
+                            <h6 class="text-muted mb-2">Stock Inicial</h6>
+                            <div class="row text-center">
+                                <div class="col-6">
+                                    <p class="mb-0 text-info">
+                                        <i class="fas fa-box me-1"></i><strong>C32</strong>
+                                    </p>
+                                    <h4 class="mb-0">@stockPalets.StockInicialC32</h4>
+                                </div>
+                                <div class="col-6">
+                                    <p class="mb-0 text-success">
+                                        <i class="fas fa-box me-1"></i><strong>F40</strong>
+                                    </p>
+                                    <h4 class="mb-0">@stockPalets.StockInicialF40</h4>
+                                </div>
+                            </div>
+                        </div>
+
+                        @if (stockPalets.StockFinalC32.HasValue && stockPalets.StockFinalF40.HasValue)
+                        {
+                            <hr />
+
+                            <!-- Stock Final -->
+                            <div class="mb-3">
+                                <h6 class="text-muted mb-2">Stock Final</h6>
+                                <div class="row text-center">
+                                    <div class="col-6">
+                                        <p class="mb-0 text-info"><strong>C32</strong></p>
+                                        <h4 class="mb-0">@stockPalets.StockFinalC32</h4>
+                                    </div>
+                                    <div class="col-6">
+                                        <p class="mb-0 text-success"><strong>F40</strong></p>
+                                        <h4 class="mb-0">@stockPalets.StockFinalF40</h4>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <hr />
+
+                            <!-- Producción Neta -->
+                            <div class="alert alert-success mb-0">
+                                <h6 class="mb-2">
+                                    <i class="fas fa-arrow-trend-up me-1"></i>Producción Neta
+                                </h6>
+                                <div class="row text-center">
+                                    <div class="col-6">
+                                        <p class="mb-0"><small>C32</small></p>
+                                        <h5 class="mb-0">
+                                            <span class="badge @(stockPalets.ProduccionNetaC32 >= 0 ? "bg-success" : "bg-danger")">
+                                                @stockPalets.ProduccionNetaC32.ToString("+#;-#;0")
+                                            </span>
+                                        </h5>
+                                    </div>
+                                    <div class="col-6">
+                                        <p class="mb-0"><small>F40</small></p>
+                                        <h5 class="mb-0">
+                                            <span class="badge @(stockPalets.ProduccionNetaF40 >= 0 ? "bg-success" : "bg-danger")">
+                                                @stockPalets.ProduccionNetaF40.ToString("+#;-#;0")
+                                            </span>
+                                        </h5>
+                                    </div>
+                                </div>
+                                <hr class="my-2" />
+                                <p class="text-center mb-0">
+                                    <strong>Total:</strong>
+                                    <span class="badge bg-primary fs-6">
+                                        @stockPalets.ProduccionTotalNeta palets
+                                    </span>
+                                </p>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="alert alert-warning mb-0">
+                                <i class="fas fa-hourglass-half me-1"></i>
+                                <small>Stock final pendiente de registro</small>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="alert alert-info mb-0">
+                            <i class="fas fa-info-circle me-1"></i>
+                            <small>No hay stock registrado para este turno</small>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
         <!-- ✅ SECCIÓN 2: TABLA DE MÉTRICAS ESTILO EXCEL -->
         @if (turnoActual != null && metricas != null)
         {
@@ -780,6 +882,7 @@
     private int consumoBolsas = 0;
     private List<LoteDto> lotesTurnoActual = new();
     private List<ConsumoBolsasDTO> consumosDetallados = new();
+    private RegistroStockPaletsDto? stockPalets;
 
     protected override async Task OnInitializedAsync()
     {
@@ -946,6 +1049,29 @@
                 Logger.LogError(exConsumo, "❌ Error al cargar consumo de bolsas");
                 consumosDetallados = new List<ConsumoBolsasDTO>();
                 consumoBolsas = 0;
+            }
+
+            // ✅ Cargar stock de palets
+            try
+            {
+                var responseStock = await Http.GetAsync($"api/stockpalets/turno/{turnoActual.TurnoProduccionID}");
+                
+                if (responseStock.IsSuccessStatusCode)
+                {
+                    var apiResponseStock = await responseStock.Content.ReadFromJsonAsync<ApiResponse<RegistroStockPaletsDto>>();
+                    stockPalets = apiResponseStock?.Data;
+                    Logger.LogInformation($"✅ Stock de palets cargado: {stockPalets != null}");
+                }
+                else
+                {
+                    stockPalets = null;
+                    Logger.LogWarning("⚠️ No hay stock de palets registrado");
+                }
+            }
+            catch (Exception exStock)
+            {
+                Logger.LogError(exStock, "❌ Error al cargar stock de palets");
+                stockPalets = null;
             }
         }
         catch (Exception ex)
