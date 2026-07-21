@@ -121,6 +121,28 @@ namespace CementoTrazabilidad.API.Controllers
                 return BadRequest(new { error = ex.Message });
             }
         }
+
+        [HttpGet("generate-hash")]
+        [AllowAnonymous]
+        public IActionResult GenerateHash([FromQuery] string password = "Admin123!")
+        {
+            try
+            {
+                string hash = BCrypt.Net.BCrypt.HashPassword(password);
+
+                return Ok(new
+                {
+                    success = true,
+                    password = password,
+                    hash = hash,
+                    message = "✅ Copia este hash y actualiza la base de datos"
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { success = false, error = ex.Message });
+            }
+        }
     }
 
     

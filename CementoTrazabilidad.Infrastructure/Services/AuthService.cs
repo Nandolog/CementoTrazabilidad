@@ -1,5 +1,4 @@
-﻿
-
+﻿using BCrypt.Net;  // ✅ AGREGAR ESTA LÍNEA
 using CementoTrazabilidad.Core.Interfaces;
 using CementoTrazabilidad.Core.Entidades;
 using CementoTrazabilidad.Infrastructure.Data;
@@ -30,7 +29,7 @@ namespace CementoTrazabilidad.Infrastructure.Services
                     return null;
                 }
 
-                // ✅ CAMBIO: Usar BCrypt.Verify en lugar de comparar hashes
+                // ✅ AHORA CON BCrypt
                 if (!BCrypt.Net.BCrypt.Verify(password, usuario.PasswordHash))
                 {
                     Console.WriteLine($"❌ Contraseña incorrecta para: {legajo}");
@@ -51,7 +50,6 @@ namespace CementoTrazabilidad.Infrastructure.Services
             }
         }
 
-        // ✅ CAMBIO: Método actualizado para usar BCrypt
         public static string HashPassword(string password)
         {
             return BCrypt.Net.BCrypt.HashPassword(password);
@@ -65,11 +63,10 @@ namespace CementoTrazabilidad.Infrastructure.Services
                 if (usuario == null)
                     return false;
 
-                // ✅ CAMBIO: Verificar con BCrypt
                 if (!BCrypt.Net.BCrypt.Verify(currentPassword, usuario.PasswordHash))
                     return false;
 
-                usuario.PasswordHash = HashPassword(newPassword);
+                usuario.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
                 await _context.SaveChangesAsync();
 
                 return true;
