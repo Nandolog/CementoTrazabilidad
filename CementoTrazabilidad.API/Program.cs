@@ -92,8 +92,7 @@ builder.Services.AddScoped<IUsuarioRepository, UsuarioRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IExcelExportService, ExcelExportService>();
-builder.Services.AddScoped<ITurnoValidationService, TurnoValidationService>();  // ✅ AGREGAR AQUÍ
-
+builder.Services.AddScoped<ITurnoValidationService, TurnoValidationService>();  
 // JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "DefaultKeyMinimum32CharactersLong!";
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "CementoTrazabilidad.API";
@@ -118,7 +117,7 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
-// ✅ MODIFICAR ESTE BLOQUE
+
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
