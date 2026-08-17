@@ -9,12 +9,12 @@
 @inject NavigationManager Navigation
 @inject ILogger<RegistrarProducion> Logger
 
-<PageTitle>Registrar Producción - CementoTrazabilidad</PageTitle>
+<PageTitle>Registrar Bolsas Rotas - CementoTrazabilidad</PageTitle>
 
 <div class="container-fluid">
     <div class="row mb-4">
         <div class="col">
-            <h1><i class="fas fa-industry me-2"></i>Registrar Producción</h1>
+            <h1><i class="fas fa-industry me-2"></i>Registrar Bolsas Rotas</h1>
             <p class="text-muted">Turno @TurnoId - @turnoInfo</p>
         </div>
     </div>
@@ -33,43 +33,96 @@
                 <EditForm Model="@produccionModel" OnValidSubmit="RegistrarProduccionAsync">
                     <DataAnnotationsValidator />
 
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Lote</label>
-                            <InputText class="form-control" @bind-Value="produccionModel.NumeroLote" disabled />
+                    <!-- ✅ Información del Lote (Solo lectura) -->
+                    <div class="row g-4 mb-4">
+                        <div class="col-md-4">
+                            <div class="p-3 bg-light rounded">
+                                <label class="text-muted small text-uppercase fw-bold mb-1">Lote</label>
+                                <h5 class="mb-0">@produccionModel.NumeroLote</h5>
+                            </div>
                         </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Material</label>
-                            <InputSelect class="form-select" @bind-Value="produccionModel.MaterialID" disabled>
-                                <option value="@produccionModel.MaterialID">@produccionModel.MaterialNombre</option>
-                            </InputSelect>
+                        <div class="col-md-4">
+                            <div class="p-3 bg-light rounded">
+                                <label class="text-muted small text-uppercase fw-bold mb-1">Material</label>
+                                <h5 class="mb-0">@produccionModel.MaterialNombre</h5>
+                            </div>
                         </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Bolsas Elaboradas</label>
-                            <InputNumber class="form-control" @bind-Value="produccionModel.CantidadBolsas" disabled />
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Bolsas Rotas</label>
-                            <InputNumber class="form-control" @bind-Value="produccionModel.BolsasRotas" min="0" />
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Horas de Marcha</label>
-                            <InputNumber class="form-control" @bind-Value="produccionModel.HorasMarcha" step="0.1" min="0" max="24" />
+                        <div class="col-md-4">
+                            <div class="p-3 bg-light rounded">
+                                <label class="text-muted small text-uppercase fw-bold mb-1">Bolsas Elaboradas</label>
+                                <h5 class="mb-0">@produccionModel.CantidadBolsas.ToString("N0")</h5>
+                            </div>
                         </div>
                     </div>
+
+                    <hr />
+
+                    <!-- ✅ Formulario de Registro -->
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-times-circle text-danger me-2"></i>
+                                Bolsas Rotas <span class="text-danger">*</span>
+                            </label>
+                            <InputNumber class="form-control form-control-lg"
+                                         @bind-Value="produccionModel.BolsasRotas"
+                                         min="0"
+                                         placeholder="Ej: 5" />
+                            <ValidationMessage For="@(() => produccionModel.BolsasRotas)" />
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Cantidad de bolsas que resultaron defectuosas
+                            </small>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-clock text-primary me-2"></i>
+                                Horas de Marcha
+                            </label>
+                            <InputNumber class="form-control form-control-lg"
+                                         @bind-Value="produccionModel.HorasMarcha"
+                                         step="0.1"
+                                         min="0"
+                                         max="24"
+                                         placeholder="Ej: 8.5" />
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Horas efectivas de producción (0 - 24)
+                            </small>
+                        </div>
+                    </div>
+
                     <div class="mb-3">
-                        <label class="form-label">Observaciones</label>
-                        <InputTextArea class="form-control" @bind-Value="produccionModel.Observaciones" rows="3" />
+                        <label class="form-label fw-bold">
+                            <i class="fas fa-comment me-2"></i>
+                            Observaciones
+                        </label>
+                        <InputTextArea class="form-control"
+                                       @bind-Value="produccionModel.Observaciones"
+                                       rows="3"
+                                       placeholder="Comentarios adicionales sobre las bolsas rotas..." />
                     </div>
-                    <div class="d-flex justify-content-end gap-2">
-                        <button type="button" class="btn btn-secondary" @onclick="Cancelar" disabled="@registrando">
+
+                    <!-- ✅ Resumen -->
+                    <div class="alert alert-warning border-2">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
+                            <div>
+                                <strong>Confirmación:</strong> Se registrarán
+                                <span class="badge bg-danger text-white fs-6">@produccionModel.BolsasRotas</span>
+                                bolsas rotas para el lote
+                                <strong>@produccionModel.NumeroLote</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ✅ Botones -->
+                    <div class="d-flex justify-content-end gap-2 mt-4">
+                        <button type="button" class="btn btn-secondary btn-lg" @onclick="Cancelar" disabled="@registrando">
                             <i class="fas fa-times me-2"></i>Cancelar
                         </button>
-                        <button type="submit" class="btn btn-primary" disabled="@registrando">
+                        <button type="submit" class="btn btn-warning btn-lg" disabled="@registrando">
                             @if (registrando)
                             {
                                 <span class="spinner-border spinner-border-sm me-2"></span>
@@ -78,7 +131,7 @@
                             else
                             {
                                 <i class="fas fa-save me-2"></i>
-                                <span>Registrar Producción</span>
+                                <span>Registrar Bolsas Rotas</span>
                             }
                         </button>
                     </div>
@@ -96,7 +149,7 @@
     private bool cargando = false;
     private bool registrando = false;
     private string turnoInfo = "";
-    private int turnoProduccionID = 0; // ✅ NUEVO: Guardar el ID real del turno
+    private int turnoProduccionID = 0;
 
     protected override async Task OnInitializedAsync()
     {
@@ -107,7 +160,7 @@
             if (turno != null)
             {
                 turnoInfo = $"{turno.Fecha:dd/MM/yyyy} - Turno {turno.TurnoNumero}";
-                turnoProduccionID = turno.TurnoProduccionID; // ✅ Guardar el ID real
+                turnoProduccionID = turno.TurnoProduccionID;
             }
 
             if (LoteID.HasValue)
@@ -115,10 +168,12 @@
                 var lote = await LoteService.GetLoteByIdAsync(LoteID.Value);
                 if (lote != null)
                 {
+                    produccionModel.LoteID = lote.LoteProduccionID;
                     produccionModel.NumeroLote = lote.NumeroLote;
                     produccionModel.CantidadBolsas = lote.CantidadBolsas;
                     produccionModel.MaterialID = lote.MaterialID;
                     produccionModel.MaterialNombre = lote.MaterialNombre;
+                    produccionModel.BolsasRotas = lote.BolsasRotas;
                 }
             }
         }
@@ -133,26 +188,28 @@
         registrando = true;
         try
         {
-            var dto = new CreateLoteProduccionDto
+            var dto = new UpdateLoteProduccionDto
             {
-                TurnoID = turnoProduccionID > 0 ? turnoProduccionID : TurnoId, // ✅ Usar el ID correcto
-                LoteID = produccionModel.LoteID,
-                NumeroLote = produccionModel.NumeroLote,
-                MaterialID = produccionModel.MaterialID,
-                CantidadBolsas = produccionModel.CantidadBolsas,
+                LoteID = produccionModel.LoteID ?? 0,
                 BolsasRotas = produccionModel.BolsasRotas,
-                HorasMarcha = produccionModel.HorasMarcha,
+                HorasMarcha = (decimal)produccionModel.HorasMarcha,
                 Observaciones = produccionModel.Observaciones
             };
-            
-            Console.WriteLine($"📤 Enviando lote con TurnoID: {dto.TurnoID}"); // ✅ Log para debugging
-            
-            await LoteService.CrearLoteAsync(dto);
-            Navigation.NavigateTo($"/turno/{TurnoId}");
+
+            var resultado = await LoteService.ActualizarLoteAsync(dto);
+
+            if (resultado)
+            {
+                Navigation.NavigateTo($"/turno/{TurnoId}");
+            }
+            else
+            {
+                // TODO: Mostrar mensaje de error
+            }
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Error al registrar la producción");
+            Logger.LogError(ex, "Error al registrar bolsas rotas");
         }
         finally
         {
@@ -163,5 +220,18 @@
     private void Cancelar()
     {
         Navigation.NavigateTo($"/turno/{TurnoId}");
+    }
+
+    // Modelo para la página
+    public class ProduccionModel
+    {
+        public int? LoteID { get; set; }
+        public string NumeroLote { get; set; } = string.Empty;
+        public int CantidadBolsas { get; set; }
+        public int MaterialID { get; set; }
+        public string MaterialNombre { get; set; } = string.Empty;
+        public int BolsasRotas { get; set; }
+        public double HorasMarcha { get; set; }
+        public string Observaciones { get; set; } = string.Empty;
     }
 }

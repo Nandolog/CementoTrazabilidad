@@ -17,15 +17,24 @@ public class RegistrarEventoCargaDto
 {
     [Required]
     public int TurnoProduccionID { get; set; }
-    
+
     [Required]
     public string ZonaCarga { get; set; } = string.Empty;
-    
+
     [Required]
-    public string TipoEvento { get; set; } = string.Empty;
-    
+    public string TipoEvento { get; set; } = "Inicio";
+
+    public int CantidadBolsas { get; set; }
+
+    [Range(0, int.MaxValue)]
+    public int BolsasAnden { get; set; }
+
+    [Range(0, int.MaxValue)]
+    public int BolsasPaletizado { get; set; }
+
     public string? Observaciones { get; set; }
 }
+
 
 public class ResumenCargaDto    
 {

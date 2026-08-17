@@ -1,11 +1,12 @@
 ﻿using CementoTrazabilidad.Core.Entidades;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace CementoTrazabilidad.Infrastructure.Data;
 
 public static class DbInitializer
 {
-    public static async Task SeedAsync(ApplicationDbContext context)
+    public static async Task SeedAsync(ApplicationDbContext context, IConfiguration config)
     {
         // Verificar si ya hay usuarios
         if (await context.Usuarios.AnyAsync())
@@ -16,10 +17,13 @@ public static class DbInitializer
 
         Console.WriteLine("🌱 Sembrando datos iniciales...");
 
+        var adminPassword = config["Seed:AdminPassword"] ?? "admin123";
+        var adminLegajo = config["Seed:AdminLegajo"] ?? "ADMIN001";
+
         // Crear Personal de prueba
         var personalAdmin = new Personal
         {
-            Legajo = "ADMIN001",
+            Legajo = adminLegajo,
             Nombre = "Administrador Sistema",
             Rol = "Administrador",
             Activo = true
@@ -31,9 +35,9 @@ public static class DbInitializer
         // Crear Usuario Administrador
         var usuario = new Usuario
         {
-            Legajo = "ADMIN001",
+            Legajo = adminLegajo,
             PersonalID = personalAdmin.PersonalID,
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword("admin123"), // ✅ Contraseña: admin123
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(adminPassword),
             RolSistema = "Administrador",
             Activo = true,
             FechaCreacion = DateTime.Now
@@ -43,7 +47,7 @@ public static class DbInitializer
         await context.SaveChangesAsync();
 
         Console.WriteLine("✅ Usuario administrador creado:");
-        Console.WriteLine("   Legajo: ADMIN001");
-        Console.WriteLine("   Contraseña: admin123");
+        Console.WriteLine($"   Legajo: {adminLegajo}");
+        Console.WriteLine($"   Contraseña: {adminPassword}");
     }
 }

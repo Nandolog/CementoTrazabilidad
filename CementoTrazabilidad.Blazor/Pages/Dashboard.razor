@@ -8,6 +8,7 @@
 @inject HttpClient Http
 @inject ILogger<Dashboard> Logger
 @inject IJSRuntime JSRuntime
+@inject CementoTrazabilidad.Blazor.Services.AndenesStateService AndenesState
 
 <PageTitle>Dashboard - CementoTrazabilidad</PageTitle>
 
@@ -831,8 +832,23 @@
 
     protected override async Task OnInitializedAsync()
     {
+        AndenesState.OnChange += OnAndenesChanged;
         await CargarDatos();
         primeraVez = false;
+    }
+
+    private void OnAndenesChanged()
+    {
+        // Ejecutar carga en el contexto del UI
+        _ = InvokeAsync(async () =>
+        {
+            await CargarDatos();
+        });
+    }
+
+    public void Dispose()
+    {
+        AndenesState.OnChange -= OnAndenesChanged;
     }
 
     private async Task CargarDatos()

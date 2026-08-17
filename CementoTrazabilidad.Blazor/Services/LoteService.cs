@@ -1,6 +1,7 @@
 ﻿using CementoTrazabilidad.Shared.DTOs;
 using System.Net.Http.Json;
 using System.Text.Json;
+using static System.Net.WebRequestMethods;
 
 namespace CementoTrazabilidad.Blazor.Services;
 
@@ -149,5 +150,18 @@ public class LoteService : ILoteService
     public async Task<LoteProduccionDto?> GetLoteByIdAsync(int loteId)
     {
         return await ObtenerLotePorId(loteId);
+    }
+    public async Task<bool> ActualizarLoteAsync(UpdateLoteProduccionDto dto)
+    {
+        try
+        {
+            var response = await _http.PutAsJsonAsync($"api/lotes/{dto.LoteID}", dto);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error actualizando lote: {ex.Message}");
+            return false;
+        }
     }
 }

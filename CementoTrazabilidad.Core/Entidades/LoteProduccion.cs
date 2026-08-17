@@ -31,6 +31,16 @@ public class LoteProduccion
     [MaxLength(500)]
     public string? Observaciones { get; set; }
 
+    // NUEVAS PROPIEDADES PARA DISTRIBUCIÓN
+    [MaxLength(20)]
+    public string ZonaCarga { get; set; } = "Paletizado";
+
+    [Range(0, int.MaxValue)]
+    public int BolsasAnden { get; set; }
+
+    [Range(0, int.MaxValue)]
+    public int BolsasPaletizado { get; set; }
+
     // Navigation properties
     public virtual TurnoProduccion? Turno { get; set; }
     public virtual Material? Material { get; set; }

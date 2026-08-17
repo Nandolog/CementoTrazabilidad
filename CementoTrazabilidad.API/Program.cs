@@ -121,13 +121,14 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    var config = scope.ServiceProvider.GetRequiredService<IConfiguration>();
     try
     {
         db.Database.Migrate();
         Console.WriteLine("✅ Migraciones aplicadas correctamente");
-        
-        // ✅ AGREGAR ESTA LÍNEA - Sembrar datos iniciales
-        await DbInitializer.SeedAsync(db);
+
+        // Sembrar datos iniciales usando la configuración (o variable de entorno)
+        await DbInitializer.SeedAsync(db, config);
     }
     catch (Exception ex)
     {

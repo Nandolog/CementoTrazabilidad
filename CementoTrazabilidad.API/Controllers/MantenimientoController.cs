@@ -4,6 +4,8 @@ using CementoTrazabilidad.Infrastructure.Data;
 using Microsoft.AspNetCore.Authorization;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Configuration;
 
 namespace CementoTrazabilidad.API.Controllers;
 
@@ -14,11 +16,15 @@ public class MantenimientoController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
     private readonly ILogger<MantenimientoController> _logger;
+    private readonly IHostEnvironment _env;
+    private readonly IConfiguration _config;
 
-    public MantenimientoController(ApplicationDbContext context, ILogger<MantenimientoController> logger)
+    public MantenimientoController(ApplicationDbContext context, ILogger<MantenimientoController> logger, IHostEnvironment env, IConfiguration config)
     {
         _context = context;
         _logger = logger;
+        _env = env;
+        _config = config;
     }
 
     [HttpGet("estadisticas")]
@@ -99,104 +105,44 @@ public class MantenimientoController : ControllerBase
     {
         try
         {
-            using var transaction = await _context.Database.BeginTransactionAsync();
-
-            try
+            // Protección: solo permitir en Development a menos que explícitamente se autorice
+            if (!_env.IsDevelopment())
             {
-                _logger.LogWarning("Iniciando limpieza total de base de datos de producción");
-
-                // 1. Eliminar en orden de dependencias
-                var registrosDefectos = await _context.RegistrosDefectosBolsas.CountAsync();
-                _context.RegistrosDefectosBolsas.RemoveRange(_context.RegistrosDefectosBolsas);
-                await _context.SaveChangesAsync();
-                _logger.LogInformation($"Eliminados {registrosDefectos} registros de defectos");
-
-                var consumos = await _context.ConsumoBolsas.CountAsync();
-                _context.ConsumoBolsas.RemoveRange(_context.ConsumoBolsas);
-                await _context.SaveChangesAsync();
-                _logger.LogInformation($"Eliminados {consumos} consumos de bolsas");
-
-                var lotesProveedor = await _context.LotesProveedorBolsa.CountAsync();
-                _context.LotesProveedorBolsa.RemoveRange(_context.LotesProveedorBolsa);
-                await _context.SaveChangesAsync();
-                _logger.LogInformation($"Eliminados {lotesProveedor} lotes de proveedor");
-
-                var eventos = await _context.EventosCarga.CountAsync();
-                _context.EventosCarga.RemoveRange(_context.EventosCarga);
-                await _context.SaveChangesAsync();
-                _logger.LogInformation($"Eliminados {eventos} eventos de carga");
-
-                var lotes = await _context.LotesProduccion.CountAsync();
-                _context.LotesProduccion.RemoveRange(_context.LotesProduccion);
-                await _context.SaveChangesAsync();
-                _logger.LogInformation($"Eliminados {lotes} lotes de producción");
-
-                var produccion = await _context.ProduccionMaterial.CountAsync();
-                _context.ProduccionMaterial.RemoveRange(_context.ProduccionMaterial);
-                await _context.SaveChangesAsync();
-                _logger.LogInformation($"Eliminados {produccion} registros de producción");
-
-                var paradas = await _context.Paradas.CountAsync();
-                _context.Paradas.RemoveRange(_context.Paradas);
-                await _context.SaveChangesAsync();
-                _logger.LogInformation($"Eliminadas {paradas} paradas");
-
-                var personalTurno = await _context.PersonalTurno.CountAsync();
-                _context.PersonalTurno.RemoveRange(_context.PersonalTurno);
-                await _context.SaveChangesAsync();
-                _logger.LogInformation($"Eliminados {personalTurno} asignaciones de personal");
-
-                var despachos = await _context.Despachos.CountAsync();
-                _context.Despachos.RemoveRange(_context.Despachos);
-                await _context.SaveChangesAsync();
-                _logger.LogInformation($"Eliminados {despachos} despachos");
-
-                // 2. Finalmente eliminar turnos
-                var turnos = await _context.TurnosProduccion.CountAsync();
-                _context.TurnosProduccion.RemoveRange(_context.TurnosProduccion);
-                await _context.SaveChangesAsync();
-                _logger.LogInformation($"Eliminados {turnos} turnos");
-
-                // 3. Reiniciar contadores de identidad
-                await _context.Database.ExecuteSqlRawAsync("DBCC CHECKIDENT ('TurnosProduccion', RESEED, 0)");
-                await _context.Database.ExecuteSqlRawAsync("DBCC CHECKIDENT ('LotesProduccion', RESEED, 0)");
-                await _context.Database.ExecuteSqlRawAsync("DBCC CHECKIDENT ('ProduccionMaterial', RESEED, 0)");
-                await _context.Database.ExecuteSqlRawAsync("DBCC CHECKIDENT ('Paradas', RESEED, 0)");
-                await _context.Database.ExecuteSqlRawAsync("DBCC CHECKIDENT ('EventosCarga', RESEED, 0)");
-                await _context.Database.ExecuteSqlRawAsync("DBCC CHECKIDENT ('ConsumoBolsas', RESEED, 0)");
-                await _context.Database.ExecuteSqlRawAsync("DBCC CHECKIDENT ('Despachos', RESEED, 0)");
-
-                await transaction.CommitAsync();
-
-                _logger.LogWarning("✅ Limpieza de base de datos completada exitosamente");
-
-                return Ok(new
-                {
-                    success = true,
-                    message = "Base de datos limpiada exitosamente",
-                    detalles = new
-                    {
-                        turnosEliminados = turnos,
-                        lotesEliminados = lotes,
-                        eventosEliminados = eventos,
-                        consumosEliminados = consumos,
-                        paradasEliminadas = paradas
-                    }
-                });
+                _logger.LogWarning("Intento de limpieza de BD denegado en entorno no-Development");
+                return Forbid("Operación no permitida en este entorno");
             }
-            catch (Exception)
+
+            _logger.LogWarning("Iniciando limpieza completa de la base de datos (EnsureDeleted)...");
+
+            // 1) Eliminar la base de datos completamente
+            await _context.Database.EnsureDeletedAsync();
+            _logger.LogInformation("Base de datos eliminada con EnsureDeleted.");
+
+            // 2) Recrear esquema aplicando migraciones
+            await _context.Database.MigrateAsync();
+            _logger.LogInformation("Migraciones aplicadas correctamente.");
+
+            // 3) Re-sembrar datos iniciales (seed)
+            await DbInitializer.SeedAsync(_context, _config);
+            _logger.LogInformation("Seed inicial ejecutado.");
+
+            _logger.LogWarning("✅ Limpieza y recreación de la base de datos completadas exitosamente");
+
+            return Ok(new
             {
-                await transaction.RollbackAsync();
-                throw;
-            }
+                success = true,
+                message = "Base de datos recreada y seed aplicada"
+            });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "❌ Error al limpiar base de datos");
+            _logger.LogError(ex, "❌ Error al limpiar/recrear la base de datos");
             return StatusCode(500, new
             {
                 success = false,
-                message = $"Error al limpiar: {ex.Message}"
+                message = "Error al limpiar/recrear la base de datos",
+                detalle = ex.Message,
+                inner = ex.InnerException?.Message
             });
         }
     }

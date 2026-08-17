@@ -42,7 +42,10 @@ public class LotesController : ControllerBase
                     TipoRegistro = l.TipoRegistro,
                     Observaciones = l.Observaciones,
                     MaterialID = l.MaterialID,
-                    MaterialNombre = l.Material != null ? l.Material.Nombre : "Sin material"
+                    MaterialNombre = l.Material != null ? l.Material.Nombre : "Sin material",
+                    ZonaCarga = l.ZonaCarga,
+                    BolsasAnden = l.BolsasAnden,
+                    BolsasPaletizado = l.BolsasPaletizado
                 })
                 .ToListAsync();
 
@@ -177,7 +180,8 @@ public class LotesController : ControllerBase
                     TurnoProduccionID = turnoIdFinal,
                     MaterialID = material.MaterialID,
                     BolsasElaboradas = dto.CantidadBolsas,
-                    BolsasRotas = dto.BolsasRotas,
+                    // Convertir explícitamente el int? a int usando valor por defecto 0
+                    BolsasRotas = dto.BolsasRotas ?? 0,
                     HorasMarcha = horasMarcha.Value
                 };
                 _context.ProduccionMaterial.Add(produccion);
@@ -194,7 +198,12 @@ public class LotesController : ControllerBase
                 NumeroLote = dto.NumeroLote ?? GenerarNumeroLote(turno, conteoLotes + 1),
                 TipoRegistro = dto.TipoRegistro ?? "Manual",
                 Observaciones = dto.Observaciones ?? string.Empty,
-                MaterialID = material.MaterialID
+                MaterialID = material.MaterialID,
+
+                // Mapeo de distribución
+                ZonaCarga = string.IsNullOrWhiteSpace(dto.ZonaCarga) ? "Paletizado" : dto.ZonaCarga,
+                BolsasAnden = dto.BolsasAnden,
+                BolsasPaletizado = dto.BolsasPaletizado
             };
 
             Console.WriteLine($"💾💾💾 GUARDANDO LOTE 💾💾💾");
@@ -274,7 +283,10 @@ public class LotesController : ControllerBase
                     TipoRegistro = l.TipoRegistro,
                     Observaciones = l.Observaciones,
                     MaterialID = l.MaterialID,
-                    MaterialNombre = l.Material != null ? l.Material.Nombre : "Sin material"
+                    MaterialNombre = l.Material != null ? l.Material.Nombre : "Sin material",
+                    ZonaCarga = l.ZonaCarga,
+                    BolsasAnden = l.BolsasAnden,
+                    BolsasPaletizado = l.BolsasPaletizado
                 })
                 .FirstOrDefaultAsync();
 
@@ -309,7 +321,8 @@ public class LotesController : ControllerBase
                     "Turno no encontrado",
                 PersonalTurno = personal,
                 MaquinaUtilizada = "Máquina principal", // Ajusta según tu sistema
-                MateriaPrimaLote = lote.MaterialNombre
+                // Evitar posible null asignando valor por defecto
+                MateriaPrimaLote = lote.MaterialNombre ?? string.Empty
             });
         }
         catch (Exception ex)
@@ -342,7 +355,10 @@ public class LotesController : ControllerBase
                     TipoRegistro = l.TipoRegistro,
                     Observaciones = l.Observaciones,
                     MaterialID = l.MaterialID,
-                    MaterialNombre = l.Material != null ? l.Material.Nombre : "Sin material"
+                    MaterialNombre = l.Material != null ? l.Material.Nombre : "Sin material",
+                    ZonaCarga = l.ZonaCarga,
+                    BolsasAnden = l.BolsasAnden,
+                    BolsasPaletizado = l.BolsasPaletizado
                 })
                 .FirstOrDefaultAsync();
 
@@ -356,5 +372,21 @@ public class LotesController : ControllerBase
             _logger.LogError(ex, $"Error al obtener lote {loteId}");
             return StatusCode(500, new { success = false, message = $"Error: {ex.Message}" });
         }
+    }
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdateLote(int id, [FromBody] UpdateLoteProduccionDto dto)
+    {
+        if (id != dto.LoteID)
+            return BadRequest("El ID del lote no coincide");
+
+        var lote = await _context.LotesProduccion.FindAsync(id);
+        if (lote == null)
+            return NotFound();
+
+        // ✅ SOLO actualizar estos campos
+        lote.Observaciones = dto.Observaciones;
+
+        await _context.SaveChangesAsync();
+        return NoContent();
     }
 }

@@ -11,6 +11,7 @@
 @inject NavigationManager Navigation
 @inject ILogger<Produccion> Logger
 @inject HttpClient Http
+@inject CementoTrazabilidad.Blazor.Services.AndenesStateService AndenesState
 
 <PageTitle>Producción - CementoTrazabilidad</PageTitle>
 
@@ -1204,6 +1205,8 @@
                 await Task.Delay(500);
                 await CargarResumenCarga();
                 StateHasChanged();
+                // Notificar a otras páginas (Dashboard)
+                AndenesState.NotifyStateChanged();
             }
             else
             {
@@ -1271,6 +1274,7 @@
                 await Task.Delay(500);
                 await CargarResumenCarga();
                 StateHasChanged();
+                AndenesState.NotifyStateChanged();
             }
             else
             {

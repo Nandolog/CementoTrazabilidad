@@ -129,16 +129,18 @@ public class MetricasController : ControllerBase
                 ? (tnPorHora / OBJETIVO_TN_POR_HORA * 100) 
                 : 0m;
 
-            // ✅ 13. CORRECCIÓN: Contar andenes ÚNICOS con TipoEvento == "ANDEN"
+            // CORRECCIÓN: contar andenes a partir de ZonaCarga y eventos de "Inicio"
             var andenesUtilizados = await _context.EventosCarga
-                .Where(e => e.TurnoProduccionID == turnoId && e.TipoEvento == "ANDEN")
+                .Where(e => e.TurnoProduccionID == turnoId
+                            && EF.Functions.Like(e.ZonaCarga, "%Anden%")
+                            && e.TipoEvento == "Inicio")
                 .Select(e => e.ZonaCarga)
                 .Distinct()
                 .CountAsync();
 
-            _logger.LogInformation($"📦 Turno {turnoId}: Andenes distintos con TipoEvento='ANDEN' = {andenesUtilizados}");
+            _logger.LogInformation($"📦 Turno {turnoId}: Andenes distintos detectados = {andenesUtilizados}");
             
-            // ✅ 14. Calcular palets (40 bolsas por palet)
+            // Calcular palets (40 bolsas por palet)
             var paletsCalculados = bolsasNetas / 40;
             
             // Buscar eventos de tipo PALET
@@ -182,12 +184,12 @@ public class MetricasController : ControllerBase
                 ToneladasProducidas = Math.Round(toneladasProducidas, 2),
                 ToneladasPorHora = Math.Round(tnPorHora, 2),
                 
-                // ✅ Andenes y Palets - SIN ESTIMACIONES NI DEFAULTS
-                CantidadAndenes = andenesUtilizados, // Valor real, puede ser 0
+                // Andenes y Palets
+                CantidadAndenes = andenesUtilizados,
                 PaletsRealizados = paletsRealizados,
                 
                 // KPIs
-                FactorCorreccion = Math.Round(factorConfiabilidad, 2), // ✅ Renombrado internamente
+                FactorCorreccion = Math.Round(factorConfiabilidad, 2),
                 FactorProduccion = Math.Round(factorProduccion, 2),
                 EficienciaGlobal = Math.Round(factorConfiabilidad, 2),
                 

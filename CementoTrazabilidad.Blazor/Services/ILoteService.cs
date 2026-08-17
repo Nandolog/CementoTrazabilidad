@@ -8,4 +8,5 @@ public interface ILoteService
     Task<(bool success, string message)> CrearLoteAsync(CreateLoteProduccionDto dto);
     Task<ResultadoTrazabilidadDto?> BuscarTrazabilidadAsync(ConsultaTrazabilidadDto consulta);
     Task<LoteProduccionDto?> GetLoteByIdAsync(int loteId);
+    Task<bool> ActualizarLoteAsync(CementoTrazabilidad.Shared.DTOs.UpdateLoteProduccionDto dto);
 }

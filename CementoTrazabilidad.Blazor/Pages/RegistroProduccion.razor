@@ -1,21 +1,24 @@
 ﻿@page "/registro-produccion"
 @using CementoTrazabilidad.Shared.DTOs
 @using CementoTrazabilidad.Blazor.Services
+@using System.Net.Http
+@using System.Net.Http.Json
 @inject ITurnoService TurnoService
 @inject ILoteService LoteService
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
+@inject HttpClient Http
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Operario,Supervisor,Administrador")]
 
-<PageTitle>Registro de Producción</PageTitle>
+<PageTitle>Registro de Produccion</PageTitle>
 
 <div class="container-fluid py-3">
     @if (turnoActivo == null)
     {
         <div class="alert alert-warning">
             <i class="fas fa-exclamation-triangle me-2"></i>
-            <strong>No hay turno activo.</strong> Debes iniciar un turno antes de registrar producción.
-            <button class="btn btn-sm btn-primary ms-3" @onclick="@( () => Navigation.NavigateTo("/turnos") )">
+            <strong>No hay turno activo.</strong> Debes iniciar un turno antes de registrar produccion.
+            <button class="btn btn-sm btn-primary ms-3" @onclick="@(() => Navigation.NavigateTo("/turnos"))">
                 Ir a Turnos
             </button>
         </div>
@@ -42,14 +45,14 @@
                             </div>
                             <div class="col-md-6">
                                 <p class="mb-2">
-                                    <strong>Total producido:</strong> 
+                                    <strong>Total producido:</strong>
                                     <span class="badge bg-success fs-5">@totalBolsasHoy bolsas</span>
                                 </p>
                                 <p class="mb-2">
-                                    <strong>Último registro:</strong> @(ultimoLote?.FechaHoraFin?.ToString("HH:mm") ?? "Sin registros")
+                                    <strong>Ultimo registro:</strong> @(ultimoLote?.FechaHoraFin?.ToString("HH:mm") ?? "Sin registros")
                                 </p>
                             </div>
-                        </div> <!-- Faltaba cerrar este div -->
+                        </div>
                     </div>
                 </div>
             </div>
@@ -80,41 +83,80 @@
                     <div class="row">
                         <div class="col-md-4 mb-3">
                             <label class="form-label">Cantidad de Bolsas <span class="text-danger">*</span></label>
-                            <InputNumber @bind-Value="loteForm.CantidadBolsas" 
-                                       class="form-control form-control-lg" 
-                                       placeholder="Ej: 500" />
+                            <InputNumber @bind-Value="loteForm.CantidadBolsas"
+                                         class="form-control form-control-lg"
+                                         placeholder="Ej: 500" />
                             <ValidationMessage For="@(() => loteForm.CantidadBolsas)" />
                         </div>
 
                         <div class="col-md-4 mb-3">
+                            <label class="form-label">Destino de Carga <span class="text-danger">*</span></label>
+                            <select class="form-select form-select-lg" @bind="zonaSeleccionada">
+                                <option value="Paletizado">Paletizado</option>
+                                <option value="Anden">Anden</option>
+                            </select>
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Selecciona donde se almacenaran las bolsas
+                            </small>
+                        </div>
+
+                        <div class="col-md-4 mb-3" style="display: @(zonaSeleccionada == "Anden" ? "block" : "none")">
+                            <label class="form-label">Bolsas a Anden</label>
+                            <InputNumber @bind-Value="bolsasAnden"
+                                         class="form-control"
+                                         placeholder="Ej: 100" />
+                            <small class="text-muted">
+                                <i class="fas fa-calculator me-1"></i>
+                                Bolsas que iran directamente al anden
+                            </small>
+                            <ValidationMessage For="@(() => bolsasAnden)" />
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
                             <label class="form-label">Rango temporal estimado</label>
                             <div class="input-group">
                                 <span class="input-group-text">
                                     <i class="fas fa-clock"></i>
                                 </span>
-                                <input type="text" class="form-control" 
-                                       value="@rangoTemporal" 
+                                <input type="text" class="form-control"
+                                       value="@rangoTemporal"
                                        disabled />
                             </div>
                             <small class="text-muted">
-                                Desde último registro hasta ahora
+                                Desde ultimo registro hasta ahora
                             </small>
                         </div>
 
-                        <div class="col-md-4 mb-3">
+                        <div class="col-md-6 mb-3">
                             <label class="form-label">Observaciones</label>
-                            <InputText @bind-Value="loteForm.Observaciones" 
-                                     class="form-control" 
-                                     placeholder="Opcional" />
+                            <InputText @bind-Value="loteForm.Observaciones"
+                                       class="form-control"
+                                       placeholder="Opcional" />
                         </div>
+                    </div>
+
+                    <div class="alert alert-@(zonaSeleccionada == "Anden" ? "warning" : "info")">
+                        <i class="fas fa-@(zonaSeleccionada == "Anden" ? "pallet" : "box") me-2"></i>
+                        <strong>Resumen de carga:</strong>
+                        @if (zonaSeleccionada == "Paletizado")
+                        {
+                            <span>@loteForm.CantidadBolsas bolsas iran a Paletizado</span>
+                        }
+                        else
+                        {
+                            <span>@loteForm.CantidadBolsas bolsas totales, de las cuales @bolsasAnden iran a Anden y @(loteForm.CantidadBolsas - bolsasAnden) a Paletizado</span>
+                        }
                     </div>
 
                     <div class="alert alert-info">
                         <i class="fas fa-info-circle me-2"></i>
-                        <strong>Trazabilidad:</strong> Las bolsas impresas entre 
-                        <strong>@rangoInicio.ToString("HH:mm")</strong> y 
-                        <strong>@DateTime.Now.ToString("HH:mm")</strong> 
-                        quedarán asociadas a este lote.
+                        <strong>Trazabilidad:</strong> Las bolsas impresas entre
+                        <strong>@rangoInicio.ToString("HH:mm")</strong> y
+                        <strong>@DateTime.Now.ToString("HH:mm")</strong>
+                        quedaran asociadas a este lote.
                     </div>
 
                     @if (!string.IsNullOrEmpty(mensajeError))
@@ -133,17 +175,13 @@
                             <i class="fas fa-save me-2"></i>Registrar Lote
                         </button>
 
-                        <!-- Botones rápidos -->
-                        <button type="button" class="btn btn-outline-primary" 
-                                @onclick="() => loteForm.CantidadBolsas = 500">
-                            500
-                        </button>
-                        <button type="button" class="btn btn-outline-primary" 
-                                @onclick="() => loteForm.CantidadBolsas = 1000">
+                        <Component />
+                        <button type="button" class="btn btn-outline-primary"
+                                @onclick="@(() => { loteForm.CantidadBolsas = 1000; if (zonaSeleccionada == "Anden") bolsasAnden = 200; })">
                             1000
                         </button>
-                        <button type="button" class="btn btn-outline-primary" 
-                                @onclick="() => loteForm.CantidadBolsas = 2000">
+                        <button type="button" class="btn btn-outline-primary"
+                                @onclick="@(() => { loteForm.CantidadBolsas = 2000; if (zonaSeleccionada == "Anden") bolsasAnden = 400; })">
                             2000
                         </button>
                     </div>
@@ -151,7 +189,91 @@
             </div>
         </div>
 
-        <!-- Historial de lotes -->
+        <div class="card mt-4 border-warning">
+            <div class="card-header bg-warning text-dark">
+                <h6 class="mb-0">
+                    <i class="fas fa-chart-pie me-2"></i>Distribucion de Carga - Turno Actual
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span><i class="fas fa-pallet me-2 text-primary"></i>Paletizado:</span>
+                            <span class="badge bg-primary fs-6">
+                                @totalBolsasPaletizado bolsas
+                            </span>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span><i class="fas fa-warehouse me-2 text-warning"></i>Anden:</span>
+                            <span class="badge bg-warning text-dark fs-6">
+                                @totalBolsasAnden bolsas
+                            </span>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span><i class="fas fa-boxes me-2 text-success"></i>Total:</span>
+                            <span class="badge bg-success fs-6">
+                                @totalBolsasHoy bolsas
+                            </span>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span><i class="fas fa-calculator me-2 text-info"></i>Promedio/Lote:</span>
+                            <span class="badge bg-info text-dark fs-6">
+                                @(lotesHoy.Any() ? (totalBolsasHoy / lotesHoy.Count).ToString("N0") : "0") bolsas
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <hr />
+                <div class="row">
+                    <div class="col-12">
+                        <div class="progress" style="height: 30px;">
+                            @if (totalBolsasHoy > 0)
+                            {
+                                var porcentajePaletizado = (totalBolsasPaletizado * 100.0 / totalBolsasHoy);
+                                var porcentajeAnden = (totalBolsasAnden * 100.0 / totalBolsasHoy);
+
+                                <div class="progress-bar bg-primary"
+                                     role="progressbar"
+                                     style="width: @porcentajePaletizado%"
+                                     aria-valuenow="@porcentajePaletizado"
+                                     aria-valuemin="0"
+                                     aria-valuemax="100">
+                                    Paletizado @porcentajePaletizado.ToString("N1")%
+                                </div>
+                                <div class="progress-bar bg-warning text-dark"
+                                     role="progressbar"
+                                     style="width: @porcentajeAnden%"
+                                     aria-valuenow="@porcentajeAnden"
+                                     aria-valuemin="0"
+                                     aria-valuemax="100">
+                                    Anden @porcentajeAnden.ToString("N1")%
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="progress-bar bg-secondary"
+                                     role="progressbar"
+                                     style="width: 100%">
+                                    Sin registros
+                                </div>
+                            }
+                        </div>
+                        <small class="text-muted mt-1 d-block text-center">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Distribucion de bolsas entre Paletizado y Anden
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="card mt-4">
             <div class="card-header">
                 <h5 class="mb-0">
@@ -163,9 +285,11 @@
                     <table class="table table-hover">
                         <thead>
                             <tr>
-                                <th>Nº Lote</th>
+                                <th>N° Lote</th>
                                 <th>Rango Temporal</th>
                                 <th>Cantidad</th>
+                                <th>Destino</th>
+                                <th>Distribucion</th>
                                 <th>Tipo</th>
                                 <th>Observaciones</th>
                             </tr>
@@ -177,10 +301,28 @@
                                     <td><strong>@lote.NumeroLote</strong></td>
                                     <td>
                                         <i class="fas fa-clock text-muted me-1"></i>
-                                        @lote.FechaHoraInicio.ToString("HH:mm") - @(lote.FechaHoraFin.HasValue ? lote.FechaHoraFin.Value.ToString("HH:mm") : "Sin fin")
+                                        @lote.FechaHoraInicio.ToString("HH:mm") - @(lote.FechaHoraFin.HasValue? lote.FechaHoraFin.Value.ToString("HH:mm") : "Sin fin")
                                     </td>
                                     <td>
                                         <span class="badge bg-success">@lote.CantidadBolsas bolsas</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge @(lote.ZonaCarga == "Paletizado" ? "bg-primary" : "bg-warning text-dark")">
+                                            @lote.ZonaCarga
+                                        </span>
+                                    </td>
+                                    <td>
+                                        @if (lote.ZonaCarga == "Anden")
+                                        {
+                                            <small>
+                                                <span class="text-warning">@lote.BolsasAnden</span> anden |
+                                                <span class="text-primary">@lote.BolsasPaletizado</span> paletizado
+                                            </small>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-primary">@lote.CantidadBolsas</span> <text>paletizado</text>
+                                        }
                                     </td>
                                     <td>
                                         <span class="badge @(lote.TipoRegistro == "Manual" ? "bg-primary" : "bg-secondary")">
@@ -211,11 +353,16 @@
     private string mensajeError = string.Empty;
     private System.Threading.Timer? timer;
 
+    private string zonaSeleccionada = "Paletizado";
+    private int bolsasAnden = 0;
+
+    private int totalBolsasPaletizado => lotesHoy.Sum(l => l.BolsasPaletizado);
+    private int totalBolsasAnden => lotesHoy.Sum(l => l.BolsasAnden);
+
     protected override async Task OnInitializedAsync()
     {
         await CargarDatos();
 
-        // Timer para actualizar hora
         timer = new System.Threading.Timer(async _ =>
         {
             horaActual = DateTime.Now;
@@ -226,32 +373,19 @@
     private async Task CargarDatos()
     {
         turnoActivo = await TurnoService.GetTurnoActivoAsync();
-        
-        Console.WriteLine($"🔄 CargarDatos - Turno activo: {turnoActivo?.TurnoProduccionID}");
-        
+
         if (turnoActivo != null)
         {
+            // TurnoProduccionID puede ser nullable (int?). usar GetValueOrDefault() para obtener int.
             loteForm.TurnoID = turnoActivo.TurnoProduccionID;
-            
-            Console.WriteLine($"🔄 Cargando lotes del turno {turnoActivo.TurnoProduccionID}");
             lotesHoy = await LoteService.GetLotesPorTurnoAsync(turnoActivo.TurnoProduccionID);
-            
-            Console.WriteLine($"✅ Lotes cargados: {lotesHoy.Count}");
-            
+
             totalBolsasHoy = lotesHoy.Sum(l => l.CantidadBolsas);
             ultimoLote = lotesHoy.OrderByDescending(l => l.FechaHoraFin).FirstOrDefault();
-            
-            // Calcular inicio del rango
             rangoInicio = ultimoLote?.FechaHoraFin ?? turnoActivo.FechaHoraInicio;
-            
-            Console.WriteLine($"📊 Total bolsas: {totalBolsasHoy}, Último lote: {ultimoLote?.NumeroLote}");
         }
-        else
-        {
-            Console.WriteLine("⚠️ No hay turno activo");
-        }
-        
-        StateHasChanged(); // ✅ Forzar actualización de la UI
+
+        StateHasChanged();
     }
 
     private async Task RegistrarLote()
@@ -261,41 +395,79 @@
 
         try
         {
-            Console.WriteLine($"💾 Registrando lote: {loteForm.CantidadBolsas} bolsas para turno {loteForm.TurnoID}");
-            
-            var resultado = await LoteService.CrearLoteAsync(loteForm);
+            if (zonaSeleccionada == "Anden" && bolsasAnden <= 0)
+            {
+                mensajeError = "Debes especificar cuantas bolsas van al anden";
+                return;
+            }
 
-            Console.WriteLine($"📥 Resultado: success={resultado.success}, message={resultado.message}");
+            if (zonaSeleccionada == "Anden" && bolsasAnden > loteForm.CantidadBolsas)
+            {
+                mensajeError = "Las bolsas a anden no pueden superar el total de bolsas del lote";
+                return;
+            }
+
+            loteForm.ZonaCarga = zonaSeleccionada;
+            loteForm.BolsasAnden = bolsasAnden;
+            loteForm.BolsasPaletizado = zonaSeleccionada == "Paletizado"
+                ? loteForm.CantidadBolsas
+                : loteForm.CantidadBolsas - bolsasAnden;
+
+            // TotalHours devuelve double -> convertir explícitamente a decimal
+            loteForm.HorasMarcha = (decimal)(DateTime.Now - rangoInicio).TotalHours;
+
+            var resultado = await LoteService.CrearLoteAsync(loteForm);
 
             if (resultado.success)
             {
-                await JSRuntime.InvokeVoidAsync("alert", 
-                    $"✓ Lote registrado: {loteForm.CantidadBolsas} bolsas");
-                
-                loteForm = new CreateLoteProduccionDto 
-                { 
-                    TurnoID = turnoActivo!.TurnoProduccionID 
+                try
+                {
+                    var eventoDto = new RegistrarEventoCargaDto
+                    {
+                        TurnoProduccionID = turnoActivo!.TurnoProduccionID,
+                        ZonaCarga = zonaSeleccionada,
+                        TipoEvento = "Inicio",
+                        CantidadBolsas = loteForm.CantidadBolsas,
+                        BolsasAnden = bolsasAnden,
+                        BolsasPaletizado = loteForm.BolsasPaletizado,
+                        Observaciones = $"Lote registrado: {loteForm.CantidadBolsas} bolsas, {bolsasAnden} a anden"
+                    };
+
+                    await Http.PostAsJsonAsync("api/eventocarga", eventoDto);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error al registrar evento: {ex.Message}");
+                }
+
+                await JSRuntime.InvokeVoidAsync("alert",
+                    $"Lote registrado: {loteForm.CantidadBolsas} bolsas\n" +
+                    $"Destino: {zonaSeleccionada}\n" +
+                    $"Bolsas a anden: {bolsasAnden}\n" +
+                    $"Bolsas a paletizado: {loteForm.BolsasPaletizado}");
+
+                loteForm = new CreateLoteProduccionDto
+                {
+                    TurnoID = turnoActivo!.TurnoProduccionID,
                 };
-                
-                Console.WriteLine($"🔄 Recargando datos...");
+                bolsasAnden = 0;
+                zonaSeleccionada = "Paletizado";
+
                 await CargarDatos();
-                Console.WriteLine($"✅ Datos recargados. Total lotes: {lotesHoy.Count}");
             }
             else
             {
-                mensajeError = resultado.message;
-                Console.WriteLine($"❌ Error al registrar: {resultado.message}");
+                mensajeError = resultado.message ?? "Error desconocido";
             }
         }
         catch (Exception ex)
         {
             mensajeError = $"Error: {ex.Message}";
-            Console.WriteLine($"❌ Excepción: {ex.Message}");
         }
         finally
         {
             guardando = false;
-            StateHasChanged(); // ✅ Forzar actualización de la UI
+            StateHasChanged();
         }
     }
 

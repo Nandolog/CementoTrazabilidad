@@ -30,6 +30,9 @@ builder.Services.AddScoped<IMetricasService, MetricasService>();
 builder.Services.AddScoped<IDespachoService, DespachoService>();
 builder.Services.AddScoped<IDateTimeService, DateTimeService>();
 
+// Nuevo: servicio de estado para notificar cambios de andenes/palets
+builder.Services.AddSingleton<AndenesStateService>();
+
 builder.RootComponents.Add<CementoTrazabilidad.Blazor.App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
