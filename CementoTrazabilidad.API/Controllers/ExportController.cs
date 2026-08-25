@@ -200,9 +200,25 @@ public class ExportController : ControllerBase
         var turno = await _context.TurnosProduccion.FindAsync(turnoId);
         if (turno == null) throw new Exception("Turno no encontrado");
 
+        // ✅ CORRECCIÓN 1: Validación de fechas
         var inicio = turno.FechaHoraInicio;
         var fin = turno.FechaHoraFin ?? DateTime.Now;
+
+        // Si la fecha de fin es menor que la de inicio, usar hora actual
+        if (fin < inicio)
+        {
+            fin = DateTime.Now;
+            _logger.LogWarning($"⚠️ Turno {turnoId}: FechaHoraFin corregida");
+        }
+
         var horasMarcha = fin - inicio;
+
+        // Si las horas de marcha son negativas, forzar a cero
+        if (horasMarcha.TotalHours < 0)
+        {
+            horasMarcha = TimeSpan.Zero;
+            _logger.LogWarning($"⚠️ Turno {turnoId}: Horas de marcha negativas, forzando a 0");
+        }
 
         var horasTeoricasTurno = turno.TurnoNumero switch
         {
@@ -216,10 +232,17 @@ public class ExportController : ControllerBase
             .Where(p => p.TurnoProduccionID == turnoId)
             .ToListAsync();
 
-        var totalParadas = TimeSpan.FromMinutes(paradas.Sum(p => 
+        var totalParadas = TimeSpan.FromMinutes(paradas.Sum(p =>
             ((p.FechaHoraFin ?? DateTime.Now) - p.FechaHoraInicio).TotalMinutes));
 
         var horasProductivas = horasMarcha - totalParadas;
+
+        // Si las horas productivas son negativas, forzar a cero
+        if (horasProductivas.TotalHours < 0)
+        {
+            horasProductivas = TimeSpan.Zero;
+            _logger.LogWarning($"⚠️ Turno {turnoId}: Horas productivas negativas, forzando a 0");
+        }
 
         var paradasMecanicas = paradas
             .Where(p => p.TipoParada != null && p.TipoParada.Contains("Mecanica", StringComparison.OrdinalIgnoreCase))
@@ -247,40 +270,97 @@ public class ExportController : ControllerBase
         var bolsasNetas = bolsasRealizadas - bolsasRotas;
         var toneladasProducidas = bolsasNetas * 0.05m; // 50kg = 0.05 toneladas
 
-        var tnPorHora = horasProductivas.TotalHours > 0 
-            ? toneladasProducidas / (decimal)horasProductivas.TotalHours 
+        var tnPorHora = horasProductivas.TotalHours > 0
+            ? toneladasProducidas / (decimal)horasProductivas.TotalHours
             : 0m;
 
-        var factorCorreccion = horasMarcha.TotalHours > 0 
-            ? (decimal)(horasProductivas.TotalHours / horasMarcha.TotalHours * 100) 
+        var factorCorreccion = horasMarcha.TotalHours > 0
+            ? (decimal)(horasProductivas.TotalHours / horasMarcha.TotalHours * 100)
             : 0m;
 
         var factorProduccion = tnPorHora / 80m * 100m; // Objetivo 80 Tn/h
 
-        // ✅ CORRECCIÓN: Contar andenes REALES únicos (sin estimaciones)
-        var eventosAndenes = await _context.EventosCarga
-            .Where(e => e.TurnoProduccionID == turnoId && e.TipoEvento == "ANDEN")
-            .Select(e => e.ZonaCarga)
-            .Distinct()
-            .CountAsync();
+        // ============================================
+        // ✅ CORRECCIÓN 2: ANDENES - Solo desde EventosCarga
+        // ============================================
+        int cantidadAndenes = 0;
 
-        _logger.LogInformation($"📊 Turno {turnoId}: Andenes distintos registrados = {eventosAndenes}");
+        // Buscar eventos de la zona "Anden" con TipoEvento "Inicio"
+        var eventosAndenInicio = await _context.EventosCarga
+            .Where(e => e.TurnoProduccionID == turnoId
+                        && e.ZonaCarga == "Anden"  // ← CORRECCIÓN: ZonaCarga, no TipoEvento
+                        && e.TipoEvento == "Inicio")  // Contamos inicios = andenes únicos
+            .ToListAsync();
 
+        if (eventosAndenInicio.Any())
+        {
+            cantidadAndenes = eventosAndenInicio.Count;
+            _logger.LogInformation($"✅ Turno {turnoId}: Andenes desde EventosCarga (inicios) = {cantidadAndenes}");
+        }
+        else
+        {
+            // Alternativa: Buscar eventos de Fin si no hay Inicios
+            var eventosAndenFin = await _context.EventosCarga
+                .Where(e => e.TurnoProduccionID == turnoId
+                            && e.ZonaCarga == "Anden"
+                            && e.TipoEvento == "Fin")
+                .CountAsync();
+
+            if (eventosAndenFin > 0)
+            {
+                cantidadAndenes = eventosAndenFin;
+                _logger.LogInformation($"✅ Turno {turnoId}: Andenes desde EventosCarga (fines) = {cantidadAndenes}");
+            }
+            else
+            {
+                // Última alternativa: Contar eventos únicos de la zona Anden (cualquier tipo)
+                var eventosAndenUnicos = await _context.EventosCarga
+                    .Where(e => e.TurnoProduccionID == turnoId
+                                && e.ZonaCarga == "Anden")
+                    .Select(e => e.ZonaCarga)  // O podrías usar otro campo si existe
+                    .Distinct()
+                    .CountAsync();
+
+                if (eventosAndenUnicos > 0)
+                {
+                    cantidadAndenes = eventosAndenUnicos;
+                    _logger.LogInformation($"✅ Turno {turnoId}: Andenes únicos en EventosCarga = {cantidadAndenes}");
+                }
+            }
+        }
+
+        if (cantidadAndenes == 0)
+        {
+            _logger.LogWarning($"⚠️ Turno {turnoId}: No se encontraron andenes en EventosCarga");
+        }
+
+        // ============================================
+        // ✅ PALETS - SIN CAMBIOS (funciona correctamente)
+        // ============================================
         var eventosPalets = await _context.EventosCarga
             .Where(e => e.TurnoProduccionID == turnoId && e.TipoEvento == "PALET")
             .CountAsync();
 
+        _logger.LogInformation($"✅ Turno {turnoId}: Palets registrados = {eventosPalets}");
+
         // ✅ Calcular palets basado en 40 bolsas por palet
         var paletsCalculados = bolsasNetas / 40;
-        
+
         // Si hay eventos registrados, usar ese valor; sino usar el calculado
         var paletsFinales = eventosPalets > 0 ? eventosPalets : paletsCalculados;
 
-        // Línea 326 del método CalcularMetricasTurno, cambiar el cálculo:
-        var factorConfiabilidad = horasMarcha.TotalHours > 0 
-            ? (decimal)(horasProductivas.TotalHours / horasMarcha.TotalHours * 100) 
+        _logger.LogInformation($"📊 Turno {turnoId}: Palets finales = {paletsFinales} (eventos: {eventosPalets}, calculados: {paletsCalculados})");
+
+        // ============================================
+        // ✅ FACTOR DE CONFIABILIDAD
+        // ============================================
+        var factorConfiabilidad = horasMarcha.TotalHours > 0
+            ? (decimal)(horasProductivas.TotalHours / horasMarcha.TotalHours * 100)
             : 0m;
 
+        // ============================================
+        // ✅ RETORNAR MÉTRICAS COMPLETAS
+        // ============================================
         return new MetricasTurnoDto
         {
             TurnoProduccionID = turnoId,
@@ -304,8 +384,8 @@ public class ExportController : ControllerBase
             FactorProduccion = Math.Round(factorProduccion, 2),
             CumplimientoHoras = Math.Round((decimal)(horasProductivas.TotalHours / horasTeoricasTurno.TotalHours * 100), 2),
             CumplimientoProduccion = Math.Round(factorProduccion, 2),
-            CantidadAndenes = eventosAndenes, // ✅ Valor real sin estimaciones
-            PaletsRealizados = paletsFinales,
+            CantidadAndenes = cantidadAndenes,  // ✅ CORREGIDO - Solo desde EventosCarga
+            PaletsRealizados = paletsFinales,   // ✅ SIN CAMBIOS
             PaletsObjetivoTurno = 213, // 640/3 ≈ 213
             PaletsObjetivoDiario = 640,
             CumplimientoPalets = paletsFinales > 0 ? Math.Round((decimal)paletsFinales / 213m * 100m, 2) : 0m
