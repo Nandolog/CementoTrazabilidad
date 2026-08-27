@@ -1,8 +1,8 @@
-namespace CementoTrazabilidad.Shared.DTOs;
+﻿namespace CementoTrazabilidad.Shared.DTOs;
 
 public class MetricasTurnoDto
 {
-    // Identificaci�n
+    // Identificación
     public int TurnoProduccionID { get; set; }
     public int TurnoNumero { get; set; }
     public DateOnly Fecha { get; set; }
@@ -22,10 +22,10 @@ public class MetricasTurnoDto
     // Tiempos de Actividades (calculados desde EventosCarga)
     public double TiempoAndenes { get; set; } // Minutos en carga de andenes
     public double TiempoPaletizado { get; set; } // Minutos en paletizado
-    public double TiempoCambioCamara { get; set; } // Si se registra como parada
+    public double TiempoCambioCamion { get; set; } // Si se registra como parada
     public double TiempoStockLleno { get; set; }
     
-    // Producci�n
+    // Producción
     public int BolsasRealizadas { get; set; }
     public int BolsasRotas { get; set; }
     public int BolsasNetas { get; set; }
@@ -35,9 +35,14 @@ public class MetricasTurnoDto
     // Andenes y Palets
     public int CantidadAndenes { get; set; } // Andenes que se usaron
     public int PaletsRealizados { get; set; }
-    
+
     // KPIs y Factores
-    public decimal FactorCorreccion { get; set; } // FC = (HsProductivas / HsMarcha) * 100
+    // KPIs y Factores
+    /// <summary>
+    /// Factor de Confiabilidad (FC) = (Horas Productivas / Horas Marcha) * 100
+    /// Mide la confiabilidad del proceso productivo
+    /// </summary>
+    public decimal FactorConfiabilidad { get; set; } // ✅ CAMBIADO: de FactorCorreccion a FactorConfiabilidad
     public decimal FactorProduccion { get; set; } // FP = (TnReal/h / TnObjetivo/h) * 100
     public decimal EficienciaGlobal { get; set; } // Tiempo productivo vs objetivo
     

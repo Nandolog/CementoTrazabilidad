@@ -180,6 +180,9 @@ public class ExportController : ControllerBase
 
         var factorProduccionDiario = tnPorHoraDiarias / 80m * 100m;
 
+        // Se define factorConfiabilidadDiario igual que factorCorreccionDiario
+        var factorConfiabilidadDiario = factorCorreccionDiario;
+
         return new MetricasDiariasDto
         {
             Fecha = fecha,
@@ -189,7 +192,7 @@ public class ExportController : ControllerBase
             ToneladasProducidasDiarias = toneladasDiarias,
             BolsasTotalesDiarias = metricasTurnos.Sum(m => m.BolsasRealizadas),
             PaletsTotalesDiarios = metricasTurnos.Sum(m => m.PaletsRealizados),
-            FactorCorreccionDiario = Math.Round(factorCorreccionDiario, 2),
+            FactorConfiabilidadDiario = Math.Round(factorConfiabilidadDiario, 2),
             FactorProduccionDiario = Math.Round(factorProduccionDiario, 2),
             ToneladasPorHoraDiarias = Math.Round(tnPorHoraDiarias, 2)
         };
@@ -380,7 +383,7 @@ public class ExportController : ControllerBase
             ToneladasProducidas = toneladasProducidas,
             ToneladasPorHora = tnPorHora,
             ToneladasPorHoraObjetivo = 80m,
-            FactorCorreccion = Math.Round(factorConfiabilidad, 2),
+            FactorConfiabilidad = Math.Round(factorConfiabilidad, 2),
             FactorProduccion = Math.Round(factorProduccion, 2),
             CumplimientoHoras = Math.Round((decimal)(horasProductivas.TotalHours / horasTeoricasTurno.TotalHours * 100), 2),
             CumplimientoProduccion = Math.Round(factorProduccion, 2),

@@ -83,7 +83,7 @@ public class ExcelExportService : IExcelExportService
         row++;
         var dataKPIs = new[]
         {
-            new { Indicador = "Factor de Confiabilidad (FC)", Valor = $"{metricas.FactorCorreccion:N2}%", Objetivo = "≥90%", Cumplimiento = metricas.FactorCorreccion },
+            new { Indicador = "Factor de Confiabilidad (FC)", Valor = $"{metricas.FactorConfiabilidad:N2}%", Objetivo = "≥90%", Cumplimiento = metricas.FactorConfiabilidad },
             new { Indicador = "Factor de Producción (FP)", Valor = $"{metricas.FactorProduccion:N2}%", Objetivo = "≥90%", Cumplimiento = metricas.FactorProduccion },
             new { Indicador = "Toneladas/Hora", Valor = $"{metricas.ToneladasPorHora:N2}", Objetivo = "80.00", Cumplimiento = metricas.CumplimientoProduccion },
             new { Indicador = "Horas Productivas", Valor = $"{metricas.HorasProductivas.TotalHours:N2}h", Objetivo = "7.70h", Cumplimiento = metricas.CumplimientoHoras }
@@ -237,10 +237,10 @@ public class ExcelExportService : IExcelExportService
         
         row++;
         ws.Cell(row, 1).Value = "Factor de Corrección Diario (FC)";
-        ws.Cell(row, 2).Value = $"{metricasDiarias.FactorCorreccionDiario:N2}%";
+        ws.Cell(row, 2).Value = $"{metricasDiarias.FactorConfiabilidadDiario:N2}%";
         ws.Cell(row, 3).Value = "≥90%";
-        ws.Cell(row, 4).Value = metricasDiarias.FactorCorreccionDiario >= 90 ? "✅ CUMPLE" : "❌ NO CUMPLE";
-        var colorFC = metricasDiarias.FactorCorreccionDiario >= 90 ? XLColor.Green : XLColor.Red;
+        ws.Cell(row, 4).Value = metricasDiarias.FactorConfiabilidadDiario >= 90 ? "✅ CUMPLE" : "❌ NO CUMPLE";
+        var colorFC = metricasDiarias.FactorConfiabilidadDiario >= 90 ? XLColor.Green : XLColor.Red;
         ws.Cell(row, 4).Style.Fill.SetBackgroundColor(colorFC).Font.SetFontColor(XLColor.White).Font.SetBold();
         
         row++;
@@ -296,7 +296,7 @@ public class ExcelExportService : IExcelExportService
         foreach (var metricas in metricasTurnos.OrderBy(m => m.TurnoNumero))
         {
             ws.Cell(row, 1).Value = $"Turno {metricas.TurnoNumero}";
-            ws.Cell(row, 2).Value = metricas.FactorCorreccion;
+            ws.Cell(row, 2).Value = metricas.FactorConfiabilidad;
             ws.Cell(row, 2).Style.NumberFormat.Format = "0.00";
             ws.Cell(row, 3).Value = metricas.FactorProduccion;
             ws.Cell(row, 3).Style.NumberFormat.Format = "0.00";
@@ -381,7 +381,7 @@ public class ExcelExportService : IExcelExportService
         ws.Range(row, 1, row, 4).Merge().Style.Font.SetBold().Font.SetFontSize(14);
         
         row += 2;
-        ws.Cell(row, 1).Value = "FC:"; ws.Cell(row, 2).Value = $"{metricas.FactorCorreccion:N2}%";
+        ws.Cell(row, 1).Value = "FC:"; ws.Cell(row, 2).Value = $"{metricas.FactorConfiabilidad:N2}%";
         row++;
         ws.Cell(row, 1).Value = "FP:"; ws.Cell(row, 2).Value = $"{metricas.FactorProduccion:N2}%";
         row++;
@@ -449,7 +449,7 @@ public class ExcelExportService : IExcelExportService
         
         row++;
         var cantidadTurnos = metricasTurnos.Count;
-        var promedioFC = metricasTurnos.Average(m => m.FactorCorreccion);
+        var promedioFC = metricasTurnos.Average(m => m.FactorConfiabilidad);
         var promedioFP = metricasTurnos.Average(m => m.FactorProduccion);
         var promedioTnH = metricasTurnos.Average(m => m.ToneladasPorHora);
         
@@ -501,7 +501,7 @@ public class ExcelExportService : IExcelExportService
                 ws.Cell(row, 3).Value = turnosX.Sum(t => t.BolsasNetas);
                 ws.Cell(row, 4).Value = turnosX.Sum(t => t.ToneladasProducidas);
                 ws.Cell(row, 4).Style.NumberFormat.Format = "#,##0.00";
-                ws.Cell(row, 5).Value = turnosX.Average(t => t.FactorCorreccion);
+                ws.Cell(row, 5).Value = turnosX.Average(t => t.FactorConfiabilidad);
                 ws.Cell(row, 5).Style.NumberFormat.Format = "0.00";
                 ws.Cell(row, 6).Value = turnosX.Average(t => t.FactorProduccion);
                 ws.Cell(row, 6).Style.NumberFormat.Format = "0.00";
@@ -553,7 +553,7 @@ public class ExcelExportService : IExcelExportService
             ws.Cell(row, 5).Value = metricas.ToneladasProducidas;
             ws.Cell(row, 5).Style.NumberFormat.Format = "0.00";
             ws.Cell(row, 6).Value = metricas.PaletsRealizados;
-            ws.Cell(row, 7).Value = metricas.FactorCorreccion;
+            ws.Cell(row, 7).Value = metricas.FactorConfiabilidad;
             ws.Cell(row, 7).Style.NumberFormat.Format = "0.00";
             ws.Cell(row, 8).Value = metricas.FactorProduccion;
             ws.Cell(row, 8).Style.NumberFormat.Format = "0.00";
@@ -604,7 +604,7 @@ public class ExcelExportService : IExcelExportService
             row++;
         
             ws.Cell(row, 1).Value = "FC:";
-            ws.Cell(row, 2).Value = $"{metricas.FactorCorreccion:N2}%";
+            ws.Cell(row, 2).Value = $"{metricas.FactorConfiabilidad:N2}%";
             ws.Cell(row, 3).Value = "FP:";
             ws.Cell(row, 4).Value = $"{metricas.FactorProduccion:N2}%";
             row++;

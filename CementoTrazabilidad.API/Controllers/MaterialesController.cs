@@ -181,8 +181,10 @@ namespace CementoTrazabilidad.API.Controllers
                     totalBolsasElaboradas = g.Sum(p => p.BolsasElaboradas),
                     totalBolsasRotas = g.Sum(p => p.BolsasRotas),
                     totalBolsasNetas = g.Sum(p => p.BolsasElaboradas - p.BolsasRotas),
-                    totalHorasMarcha = g.Sum(p => p.HorasMarcha),
-                    promedioBolsasPorHora = g.Sum(p => p.BolsasElaboradas) / (g.Sum(p => p.HorasMarcha) > 0 ? g.Sum(p => p.HorasMarcha) : 1)
+                    totalHorasMarcha = g.Sum(p => (double)p.HorasMarcha),
+                    promedioBolsasPorHora = g.Sum(p => p.BolsasElaboradas) / (g.Sum(p => (double)p.HorasMarcha) > 0
+                        ? g.Sum(p => (double)p.HorasMarcha)
+                        : 1)
                 })
                 .OrderBy(r => r.mes)
                 .ToList();

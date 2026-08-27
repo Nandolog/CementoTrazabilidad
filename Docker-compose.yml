@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
@@ -26,7 +24,7 @@ services:
       dockerfile: CementoTrazabilidad.API/Dockerfile
     container_name: cementotrazabilidad-api
     environment:
-      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
       - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=CementoTrazabilidadDB;User Id=sa;Password=CementoSeguro2024!;TrustServerCertificate=True;
       - Jwt__Key=MiClaveSecretaSuperSegura32Caracteres!

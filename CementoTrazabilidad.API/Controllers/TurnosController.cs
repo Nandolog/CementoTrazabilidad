@@ -21,7 +21,10 @@ namespace CementoTrazabilidad.API.Controllers
             _logger = logger;
         }
 
-        // ✅ CORREGIDO: Crear turno con estado "Programado"
+        // ============================================
+        // 📋 MÉTODOS PRINCIPALES
+        // ============================================
+
         [HttpPost]
         [Authorize(Roles = "Administrador,Supervisor")]
         public async Task<ActionResult<TurnoDto>> Create([FromBody] CreateTurnoDto dto)
@@ -33,7 +36,6 @@ namespace CementoTrazabilidad.API.Controllers
                 if (!ModelState.IsValid)
                     return BadRequest(ModelState);
 
-                // ✅ CORRECCIÓN: Usar TurnosProduccion (plural) como está en DbContext
                 var existe = await _context.TurnosProduccion
                     .AnyAsync(t => t.Fecha == dto.Fecha && t.TurnoNumero == dto.TurnoNumero);
 
@@ -47,7 +49,6 @@ namespace CementoTrazabilidad.API.Controllers
                     });
                 }
 
-                // ✅ CORRECTO: Crear con estado "Programado"
                 var turno = new TurnoProduccion
                 {
                     Fecha = dto.Fecha,
@@ -57,13 +58,11 @@ namespace CementoTrazabilidad.API.Controllers
                     FechaHoraFin = null
                 };
 
-                // ✅ CORRECCIÓN: Usar TurnosProduccion (plural)
                 _context.TurnosProduccion.Add(turno);
                 await _context.SaveChangesAsync();
 
                 _logger.LogInformation($"✅ Turno creado: ID={turno.TurnoProduccionID}, Estado={turno.Estado}");
 
-                // Asignar personal si se proporciona
                 if (dto.PersonalIds != null && dto.PersonalIds.Any())
                 {
                     _logger.LogInformation($"   Asignando {dto.PersonalIds.Count} personal...");
@@ -113,7 +112,7 @@ namespace CementoTrazabilidad.API.Controllers
             }
         }
 
-        // ✅ CORREGIDO: Iniciar turno - De "Programado" a "En Proceso"
+        // ✅ CORREGIDO: Iniciar turno - NO asigna FechaHoraFin
         [HttpPut("{id}/iniciar")]
         [Authorize(Roles = "Administrador,Supervisor,JefeTurno")]
         public async Task<IActionResult> IniciarTurno(int id)
@@ -140,17 +139,82 @@ namespace CementoTrazabilidad.API.Controllers
                     });
                 }
 
-                // ✅ Asignar hora de inicio REAL
+                // ✅ VALIDACIÓN DE HORARIO
+                var ahora = DateTime.Now;
+                var horaActual = ahora.TimeOfDay;
+                var fechaActual = DateOnly.FromDateTime(ahora);
+                var diaSemana = ahora.DayOfWeek;
+                bool esDomingo = diaSemana == DayOfWeek.Sunday;
+
+                var horario = ObtenerHorarioTurno(turno.TurnoNumero);
+
+                var horaInicioMinima = horario.HoraInicio.Add(TimeSpan.FromMinutes(-30));
+                var horaInicioMaxima = horario.HoraInicio.Add(TimeSpan.FromMinutes(200));
+                bool horarioValido = horaActual >= horaInicioMinima && horaActual <= horaInicioMaxima;
+
+                if (esDomingo)
+                {
+                    bool hayProduccionDomingo = await HayProduccionProgramada(fechaActual);
+
+                    if (!hayProduccionDomingo)
+                    {
+                        if (turno.TurnoNumero == 3 && horaActual >= new TimeSpan(22, 0, 0))
+                        {
+                            _logger.LogInformation($"✅ Domingo: Turno 3 permitido (mantenimiento finalizado)");
+                            horarioValido = true;
+                        }
+                        else
+                        {
+                            _logger.LogWarning($"⛔ Domingo sin producción programada. Turno {turno.TurnoNumero} no permitido.");
+                            return BadRequest(new
+                            {
+                                success = false,
+                                message = $"Los domingos solo se permite el Turno 3 a partir de las 22:30 (mantenimiento). " +
+                                         $"Si necesita producción, programe una excepción en la configuración.",
+                                esDomingo = true,
+                                turnoPermitido = 3,
+                                horaMinima = "22:30"
+                            });
+                        }
+                    }
+                }
+
+                if (!horarioValido && !esDomingo)
+                {
+                    bool overrideManual = await VerificarOverrideManual(turno.TurnoNumero, fechaActual);
+
+                    if (!overrideManual)
+                    {
+                        _logger.LogWarning($"⛔ Turno {turno.TurnoNumero} fuera de horario. Hora actual: {horaActual}");
+                        return BadRequest(new
+                        {
+                            success = false,
+                            message = $"El turno {turno.TurnoNumero} solo puede iniciarse entre " +
+                                     $"{horaInicioMinima:hh\\:mm} y {horaInicioMaxima:hh\\:mm}. " +
+                                     $"Hora actual: {horaActual:hh\\:mm}",
+                            horarioPermitido = new
+                            {
+                                desde = horaInicioMinima.ToString(@"hh\:mm"),
+                                hasta = horaInicioMaxima.ToString(@"hh\:mm")
+                            },
+                            horaActual = horaActual.ToString(@"hh\:mm")
+                        });
+                    }
+                    else
+                    {
+                        _logger.LogInformation($"✅ Turno {turno.TurnoNumero} iniciado con OVERRIDE manual");
+                    }
+                }
+
+                // ✅ INICIAR TURNO - CORREGIDO
                 turno.Estado = "En Proceso";
                 turno.FechaHoraInicio = DateTime.Now;
-                
-                // ✅ Calcular hora de fin esperada según el turno
-                turno.FechaHoraFin = CalcularHoraFinEsperada(turno.Fecha, turno.TurnoNumero);
+                turno.FechaHoraFin = null;  // ✅ NO asignar fin esperado
 
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation($"✅ Turno {id} iniciado. Real: {turno.FechaHoraInicio:HH:mm}, Esperado: {turno.FechaHoraFin:HH:mm}");
-                
+                _logger.LogInformation($"✅ Turno {id} iniciado. Real: {turno.FechaHoraInicio:HH:mm}");
+
                 return Ok(new
                 {
                     success = true,
@@ -161,7 +225,6 @@ namespace CementoTrazabilidad.API.Controllers
                         turnoNumero = turno.TurnoNumero,
                         estado = turno.Estado,
                         fechaHoraInicio = turno.FechaHoraInicio,
-                        fechaHoraFinEsperada = turno.FechaHoraFin,
                         horario = ObtenerHorarioTexto(turno.TurnoNumero)
                     }
                 });
@@ -173,7 +236,6 @@ namespace CementoTrazabilidad.API.Controllers
             }
         }
 
-        // ✅ CORREGIDO: Finalizar turno - De "En Proceso" a "Finalizado"
         [HttpPut("{id}/finalizar")]
         [Authorize(Roles = "Administrador,Supervisor,JefeTurno")]
         public async Task<IActionResult> FinalizarTurno(int id, [FromBody] FinalizarTurnoDto? dto = null)
@@ -189,7 +251,6 @@ namespace CementoTrazabilidad.API.Controllers
                     return NotFound(new { success = false, message = $"Turno con ID {id} no encontrado" });
                 }
 
-                // ✅ VALIDACIÓN CORRECTA: Solo se puede finalizar si está "En Proceso"
                 if (turno.Estado != "En Proceso")
                 {
                     _logger.LogWarning($"❌ Turno {id} no puede finalizarse. Estado actual: {turno.Estado}");
@@ -201,7 +262,6 @@ namespace CementoTrazabilidad.API.Controllers
                     });
                 }
 
-                // Cambiar estado y registrar hora de fin
                 turno.Estado = "Finalizado";
                 turno.FechaHoraFin = dto?.FechaHoraFin ?? DateTime.Now;
                 if (!string.IsNullOrEmpty(dto?.Observaciones))
@@ -231,118 +291,168 @@ namespace CementoTrazabilidad.API.Controllers
             }
         }
 
-        // ✅ CORREGIDO: Asignar personal
-        [HttpPost("{id}/asignar-personal")]
-        [Authorize(Roles = "Administrador,Supervisor,JefeTurno")]
-        public async Task<IActionResult> AsignarPersonal(int id, [FromBody] AsignarPersonalDto dto)
+        [HttpPost("override")]
+        [Authorize(Roles = "Administrador,Supervisor")]
+        public async Task<IActionResult> CrearOverride([FromBody] CrearOverrideDto dto)
         {
             try
             {
-                _logger.LogInformation($"👥 Asignando personal {dto.PersonalId} al turno {id}");
+                _logger.LogInformation($"📝 Creando override para Turno {dto.TurnoNumero} - {dto.Fecha}");
 
-                var turno = await _context.TurnosProduccion.FindAsync(id);
-                if (turno == null)
-                {
-                    _logger.LogWarning($"❌ Turno {id} no encontrado");
-                    return NotFound(new { success = false, message = $"Turno con ID {id} no encontrado" });
-                }
+                var usuario = User.Identity?.Name ?? "Sistema";
 
-                // ✅ VALIDACIÓN CORRECTA: Solo se puede asignar personal si el turno está "Programado" o "En Proceso"
-                if (turno.Estado == "Finalizado")
+                var existeOverride = await _context.Set<ConfiguracionTurno>()
+                    .AnyAsync(c => c.TurnoNumero == dto.TurnoNumero && c.Fecha == dto.Fecha);
+
+                if (existeOverride)
                 {
-                    _logger.LogWarning($"❌ No se puede asignar personal a un turno finalizado");
-                    return BadRequest(new
+                    var configExistente = await _context.Set<ConfiguracionTurno>()
+                        .FirstAsync(c => c.TurnoNumero == dto.TurnoNumero && c.Fecha == dto.Fecha);
+
+                    configExistente.OverrideActivo = true;
+                    configExistente.Motivo = dto.Motivo;
+                    configExistente.UsuarioModifico = usuario;
+                    configExistente.FechaModificacion = DateTime.Now;
+
+                    await _context.SaveChangesAsync();
+
+                    _logger.LogInformation($"✅ Override actualizado por {usuario}");
+
+                    return Ok(new
                     {
-                        success = false,
-                        message = "No se puede asignar personal a un turno finalizado",
-                        estadoActual = turno.Estado
+                        success = true,
+                        message = $"Override actualizado para Turno {dto.TurnoNumero} - {dto.Fecha}",
+                        data = configExistente
                     });
                 }
 
-                var personal = await _context.Personal.FindAsync(dto.PersonalId);
-                if (personal == null)
+                var configuracion = new ConfiguracionTurno
                 {
-                    _logger.LogWarning($"❌ Personal {dto.PersonalId} no encontrado");
-                    return NotFound(new { success = false, message = $"Personal con ID {dto.PersonalId} no encontrado" });
-                }
-
-                // Verificar si ya está asignado
-                var yaAsignado = await _context.PersonalTurno
-                    .AnyAsync(pt => pt.TurnoProduccionID == id && pt.PersonalID == dto.PersonalId);
-
-                if (yaAsignado)
-                {
-                    _logger.LogWarning($"❌ Personal {dto.PersonalId} ya está asignado al turno {id}");
-                    return BadRequest(new { success = false, message = "El personal ya está asignado a este turno" });
-                }
-
-                // Crear asignación
-                var personalTurno = new PersonalTurno
-                {
-                    TurnoProduccionID = id,
-                    PersonalID = dto.PersonalId,
-                    RolTurno = dto.RolTurno ?? "Operario"
+                    TurnoNumero = dto.TurnoNumero,
+                    Fecha = dto.Fecha,
+                    OverrideActivo = true,
+                    Motivo = dto.Motivo,
+                    UsuarioModifico = usuario,
+                    FechaModificacion = DateTime.Now
                 };
 
-                _context.PersonalTurno.Add(personalTurno);
+                _context.Set<ConfiguracionTurno>().Add(configuracion);
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation($"✅ Personal {dto.PersonalId} asignado al turno {id} (Asignación ID: {personalTurno.PersonalTurnoID})");
+                _logger.LogInformation($"✅ Override creado por {usuario}");
+
                 return Ok(new
                 {
                     success = true,
-                    message = "Personal asignado exitosamente",
-                    data = new
+                    message = $"Override creado para Turno {dto.TurnoNumero} - {dto.Fecha}",
+                    data = configuracion
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error al crear override");
+                return StatusCode(500, new { success = false, message = ex.Message });
+            }
+        }
+
+        [HttpPost("programar-produccion")]
+        [Authorize(Roles = "Administrador,Supervisor")]
+        public async Task<IActionResult> ProgramarProduccion([FromBody] ProgramarProduccionDto dto)
+        {
+            try
+            {
+                _logger.LogInformation($"📅 Programando producción para {dto.Fecha}");
+
+                var usuario = User.Identity?.Name ?? "Sistema";
+
+                var existeProgramacion = await _context.Set<ProgramacionProduccion>()
+                    .AnyAsync(p => p.Fecha == dto.Fecha);
+
+                if (existeProgramacion)
+                {
+                    var programacionExistente = await _context.Set<ProgramacionProduccion>()
+                        .FirstAsync(p => p.Fecha == dto.Fecha);
+
+                    programacionExistente.Activa = dto.Activa;
+                    programacionExistente.Motivo = dto.Motivo;
+
+                    await _context.SaveChangesAsync();
+
+                    _logger.LogInformation($"✅ Programación actualizada para {dto.Fecha}");
+
+                    return Ok(new
                     {
-                        asignacionId = personalTurno.PersonalTurnoID,
-                        personalNombre = personal.Nombre,
-                        rolTurno = personalTurno.RolTurno
+                        success = true,
+                        message = $"Programación actualizada para {dto.Fecha}",
+                        data = programacionExistente
+                    });
+                }
+
+                var programacion = new ProgramacionProduccion
+                {
+                    Fecha = dto.Fecha,
+                    Activa = dto.Activa,
+                    Motivo = dto.Motivo,
+                    FechaCreacion = DateTime.Now
+                };
+
+                _context.Set<ProgramacionProduccion>().Add(programacion);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation($"✅ Programación creada para {dto.Fecha}");
+
+                return Ok(new
+                {
+                    success = true,
+                    message = $"Programación creada para {dto.Fecha}",
+                    data = programacion
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error al programar producción");
+                return StatusCode(500, new { success = false, message = ex.Message });
+            }
+        }
+
+        [HttpGet("configuracion-horarios")]
+        [AllowAnonymous]
+        public IActionResult GetConfiguracionHorarios()
+        {
+            try
+            {
+                var horarios = new List<HorarioTurnoDto>
+                {
+                    new() { TurnoNumero = 1, HoraInicio = new TimeSpan(6, 0, 0), HoraFin = new TimeSpan(14, 30, 0) },
+                    new() { TurnoNumero = 2, HoraInicio = new TimeSpan(14, 30, 0), HoraFin = new TimeSpan(22, 30, 0) },
+                    new() { TurnoNumero = 3, HoraInicio = new TimeSpan(22, 30, 0), HoraFin = new TimeSpan(6, 0, 0) }
+                };
+
+                return Ok(new
+                {
+                    success = true,
+                    data = horarios,
+                    margenMinutos = 30,
+                    reglasDomingo = new
+                    {
+                        turnoPermitido = 3,
+                        horaMinima = "22:30",
+                        descripcion = "Los domingos solo se permite el Turno 3 a partir de las 22:30, " +
+                                     "a menos que se haya programado producción especial."
                     }
                 });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"❌ ERROR al asignar personal al turno {id}");
-                return StatusCode(500, new { success = false, message = "Error interno del servidor" });
+                _logger.LogError(ex, "❌ Error al obtener configuración de horarios");
+                return StatusCode(500, new { success = false, message = ex.Message });
             }
         }
 
-        // ✅ Método para obtener personal del turno
-        [HttpGet("{id}/personal")]
-        public async Task<ActionResult<IEnumerable<PersonalTurnoDto>>> GetPersonalTurno(int id)
-        {
-            try
-            {
-                _logger.LogInformation($"🔍 Obteniendo personal para turno {id}");
+        // ============================================
+        // 📋 MÉTODOS GET
+        // ============================================
 
-                var personal = await _context.PersonalTurno
-                    .Include(pt => pt.Personal)
-                    .Where(pt => pt.TurnoProduccionID == id)
-                    .ToListAsync();
-
-                var personalDtos = personal.Select(pt => new PersonalTurnoDto
-                {
-                    PersonalTurnoID = pt.PersonalTurnoID,
-                    TurnoProduccionID = pt.TurnoProduccionID,
-                    PersonalID = pt.PersonalID,
-                    RolTurno = pt.RolTurno ?? "Operario",
-                    PersonalNombre = pt.Personal?.Nombre ?? "No disponible",
-                    PersonalLegajo = pt.Personal?.Legajo ?? "N/A",
-                    RolPersonal = pt.Personal?.Rol ?? "N/A",
-                    Activo = pt.Personal?.Activo ?? false
-                }).ToList();
-
-                _logger.LogInformation($"✅ Personal obtenido: {personalDtos.Count} personas");
-                return Ok(new { success = true, data = personalDtos, count = personalDtos.Count });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"❌ ERROR en GetPersonalTurno para turno {id}");
-                return StatusCode(500, new { success = false, message = "Error interno del servidor" });
-            }
-        }
-
-        // ✅ Método para obtener todos los turnos con filtros
         [HttpGet]
         public async Task<ActionResult<IEnumerable<TurnoDto>>> GetAll(
             [FromQuery] DateOnly? fecha = null,
@@ -389,7 +499,6 @@ namespace CementoTrazabilidad.API.Controllers
             }
         }
 
-        // ✅ Método para obtener un turno por ID
         [HttpGet("{id}")]
         public async Task<ActionResult<TurnoDto>> GetById(int id)
         {
@@ -424,7 +533,50 @@ namespace CementoTrazabilidad.API.Controllers
             }
         }
 
-        // ✅ Método para obtener resumen
+        [HttpGet("activo")]
+        [AllowAnonymous]
+        public async Task<ActionResult<TurnoProduccionDto>> GetTurnoActivo()
+        {
+            try
+            {
+                _logger.LogInformation("🔄 API - Buscando turno activo");
+
+                var turnoActivo = await _context.TurnosProduccion
+                    .Where(t => t.Estado == "En Proceso")
+                    .OrderByDescending(t => t.FechaHoraInicio)
+                    .FirstOrDefaultAsync();
+
+                if (turnoActivo == null)
+                {
+                    _logger.LogInformation("ℹ️ No hay turno activo");
+                    return NotFound(new { success = false, message = "No hay turno activo" });
+                }
+
+                var dto = new TurnoProduccionDto
+                {
+                    TurnoProduccionID = turnoActivo.TurnoProduccionID,
+                    Fecha = turnoActivo.Fecha,
+                    TurnoNumero = turnoActivo.TurnoNumero,
+                    Estado = turnoActivo.Estado,
+                    FechaHoraInicio = turnoActivo.FechaHoraInicio,
+                    FechaHoraFin = turnoActivo.FechaHoraFin,
+                    TotalBolsasElaboradas = 0,
+                    TotalBolsasRotas = 0,
+                    TotalToneladas = 0,
+                    Producciones = new List<ProduccionMaterialDto>(),
+                    Paradas = new List<ParadaDto>()
+                };
+
+                _logger.LogInformation($"✅ Turno activo encontrado: ID {dto.TurnoProduccionID}");
+                return Ok(new { success = true, data = dto });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error al obtener turno activo");
+                return StatusCode(500, new { success = false, message = ex.Message });
+            }
+        }
+
         [HttpGet("{id}/resumen")]
         public async Task<ActionResult<TurnoResumenDto>> GetResumen(int id)
         {
@@ -460,14 +612,17 @@ namespace CementoTrazabilidad.API.Controllers
             }
         }
 
-        // ✅ NUEVO: Registrar producción
-        [HttpPost("{id}/produccion")]
-        [Authorize(Roles = "Administrador,Supervisor,JefeTurno,Operario")]
-        public async Task<IActionResult> RegistrarProduccion(int id, [FromBody] CreateProduccionDto dto)
+        // ============================================
+        // 📋 MÉTODOS DE PERSONAL
+        // ============================================
+
+        [HttpPost("{id}/asignar-personal")]
+        [Authorize(Roles = "Administrador,Supervisor,JefeTurno")]
+        public async Task<IActionResult> AsignarPersonal(int id, [FromBody] AsignarPersonalDto dto)
         {
             try
             {
-                _logger.LogInformation($"📦 Registrando producción para turno {id}");
+                _logger.LogInformation($"👥 Asignando personal {dto.PersonalId} al turno {id}");
 
                 var turno = await _context.TurnosProduccion.FindAsync(id);
                 if (turno == null)
@@ -476,10 +631,117 @@ namespace CementoTrazabilidad.API.Controllers
                     return NotFound(new { success = false, message = $"Turno con ID {id} no encontrado" });
                 }
 
-                // Validar que el turno esté en proceso
+                if (turno.Estado == "Finalizado")
+                {
+                    _logger.LogWarning($"❌ No se puede asignar personal a un turno finalizado");
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "No se puede asignar personal a un turno finalizado",
+                        estadoActual = turno.Estado
+                    });
+                }
+
+                var personal = await _context.Personal.FindAsync(dto.PersonalId);
+                if (personal == null)
+                {
+                    _logger.LogWarning($"❌ Personal {dto.PersonalId} no encontrado");
+                    return NotFound(new { success = false, message = $"Personal con ID {dto.PersonalId} no encontrado" });
+                }
+
+                var yaAsignado = await _context.PersonalTurno
+                    .AnyAsync(pt => pt.TurnoProduccionID == id && pt.PersonalID == dto.PersonalId);
+
+                if (yaAsignado)
+                {
+                    _logger.LogWarning($"❌ Personal {dto.PersonalId} ya está asignado al turno {id}");
+                    return BadRequest(new { success = false, message = "El personal ya está asignado a este turno" });
+                }
+
+                var personalTurno = new PersonalTurno
+                {
+                    TurnoProduccionID = id,
+                    PersonalID = dto.PersonalId,
+                    RolTurno = dto.RolTurno ?? "Operario"
+                };
+
+                _context.PersonalTurno.Add(personalTurno);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation($"✅ Personal {dto.PersonalId} asignado al turno {id}");
+                return Ok(new
+                {
+                    success = true,
+                    message = "Personal asignado exitosamente",
+                    data = new
+                    {
+                        asignacionId = personalTurno.PersonalTurnoID,
+                        personalNombre = personal.Nombre,
+                        rolTurno = personalTurno.RolTurno
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"❌ ERROR al asignar personal al turno {id}");
+                return StatusCode(500, new { success = false, message = "Error interno del servidor" });
+            }
+        }
+
+        [HttpGet("{id}/personal")]
+        public async Task<ActionResult<IEnumerable<PersonalTurnoDto>>> GetPersonalTurno(int id)
+        {
+            try
+            {
+                _logger.LogInformation($"🔍 Obteniendo personal para turno {id}");
+
+                var personal = await _context.PersonalTurno
+                    .Include(pt => pt.Personal)
+                    .Where(pt => pt.TurnoProduccionID == id)
+                    .ToListAsync();
+
+                var personalDtos = personal.Select(pt => new PersonalTurnoDto
+                {
+                    PersonalTurnoID = pt.PersonalTurnoID,
+                    TurnoProduccionID = pt.TurnoProduccionID,
+                    PersonalID = pt.PersonalID,
+                    RolTurno = pt.RolTurno ?? "Operario",
+                    PersonalNombre = pt.Personal?.Nombre ?? "No disponible",
+                    PersonalLegajo = pt.Personal?.Legajo ?? "N/A",
+                    RolPersonal = pt.Personal?.Rol ?? "N/A",
+                    Activo = pt.Personal?.Activo ?? false
+                }).ToList();
+
+                _logger.LogInformation($"✅ Personal obtenido: {personalDtos.Count} personas");
+                return Ok(new { success = true, data = personalDtos, count = personalDtos.Count });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"❌ ERROR en GetPersonalTurno para turno {id}");
+                return StatusCode(500, new { success = false, message = "Error interno del servidor" });
+            }
+        }
+
+        // ============================================
+        // 📋 MÉTODOS DE PRODUCCIÓN
+        // ============================================
+
+        [HttpPost("produccion")]
+        [Authorize(Roles = "Administrador,Supervisor,JefeTurno,Operario")]
+        public async Task<IActionResult> RegistrarProduccion([FromBody] CreateProduccionDto dto)
+        {
+            try
+            {
+                _logger.LogInformation($"📦 Registrando producción para turno {dto.TurnoProduccionID}");
+
+                var turno = await _context.TurnosProduccion.FindAsync(dto.TurnoProduccionID);
+                if (turno == null)
+                {
+                    return NotFound(new { success = false, message = $"Turno con ID {dto.TurnoProduccionID} no encontrado" });
+                }
+
                 if (turno.Estado != "En Proceso")
                 {
-                    _logger.LogWarning($"❌ El turno {id} no está en proceso. Estado: {turno.Estado}");
                     return BadRequest(new
                     {
                         success = false,
@@ -488,32 +750,26 @@ namespace CementoTrazabilidad.API.Controllers
                     });
                 }
 
-                // Validar que el material existe
                 var material = await _context.Materiales.FindAsync(dto.MaterialID);
                 if (material == null)
                 {
-                    _logger.LogWarning($"❌ Material {dto.MaterialID} no encontrado");
                     return NotFound(new { success = false, message = $"Material con ID {dto.MaterialID} no encontrado" });
                 }
 
-                // Calcular toneladas (asumiendo peso por bolsa del material)
-                decimal toneladas = (dto.BolsasElaboradas * material.PesoBolsa) / 1000m;
-
                 var produccion = new ProduccionMaterial
                 {
-                    TurnoProduccionID = id,
+                    TurnoProduccionID = dto.TurnoProduccionID,
                     MaterialID = dto.MaterialID,
                     BolsasElaboradas = dto.BolsasElaboradas,
                     BolsasRotas = dto.BolsasRotas,
-                    HorasMarcha = dto.HorasMarcha,
-                    
-                    
+                    HorasMarcha = dto.HorasMarcha,  // ✅ TimeSpan
+                    Observaciones = dto.Observaciones  // ✅ AGREGADO
                 };
 
                 _context.ProduccionMaterial.Add(produccion);
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation($"✅ Producción registrada: ID={produccion.ProduccionMaterialID}, Bolsas={dto.BolsasElaboradas}");
+                _logger.LogInformation($"✅ Producción registrada: Rotas={dto.BolsasRotas}");
 
                 return Ok(new
                 {
@@ -522,19 +778,21 @@ namespace CementoTrazabilidad.API.Controllers
                     data = new
                     {
                         produccionId = produccion.ProduccionMaterialID,
-                        bolsasElaboradas = produccion.BolsasElaboradas,
-                        toneladas = toneladas // <-- Usar la variable local 'toneladas' en vez de 'produccion.Toneladas'
+                        bolsasRotas = produccion.BolsasRotas
                     }
                 });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"❌ ERROR al registrar producción para turno {id}");
-                return StatusCode(500, new { success = false, message = "Error interno del servidor" });
+                _logger.LogError(ex, $"❌ ERROR al registrar producción");
+                return StatusCode(500, new { success = false, message = ex.Message });
             }
         }
 
-        // ✅ NUEVO: Registrar parada
+        // ============================================
+        // 📋 MÉTODOS DE PARADAS
+        // ============================================
+
         [HttpPost("{id}/paradas")]
         [Authorize(Roles = "Administrador,Supervisor,JefeTurno,Operario")]
         public async Task<IActionResult> RegistrarParada(int id, [FromBody] CreateParadaDto dto)
@@ -542,7 +800,6 @@ namespace CementoTrazabilidad.API.Controllers
             try
             {
                 _logger.LogInformation($"⏸️ Registrando parada para turno {id}");
-                _logger.LogInformation($"   Datos recibidos: Tipo={dto.Tipo}, Descripción={dto.Descripcion}");
 
                 var turnoExiste = await _context.TurnosProduccion.AnyAsync(t => t.TurnoProduccionID == id);
                 if (!turnoExiste)
@@ -566,15 +823,6 @@ namespace CementoTrazabilidad.API.Controllers
                     });
                 }
 
-                int? duracionMinutos = null;
-                if (dto.FechaHoraFin.HasValue)
-                {
-                    duracionMinutos = (int)(dto.FechaHoraFin.Value - dto.FechaHoraInicio).TotalMinutes;
-                }
-
-                _logger.LogInformation($"   Creando nueva entidad Parada...");
-                
-                // ✅ CORRECCIÓN: Mapear SOLO las columnas que existen en la base de datos
                 var parada = new Parada
                 {
                     TurnoProduccionID = id,
@@ -582,22 +830,12 @@ namespace CementoTrazabilidad.API.Controllers
                     Descripcion = dto.Descripcion ?? "Sin descripción",
                     FechaHoraInicio = dto.FechaHoraInicio,
                     FechaHoraFin = dto.FechaHoraFin
-                    // ✅ NO asignar: Motivo, Estado, AccionesCorrectivas (no existen en BD)
                 };
 
-                _logger.LogInformation($"   Parada creada en memoria:");
-                _logger.LogInformation($"     - TurnoProduccionID: {parada.TurnoProduccionID}");
-                _logger.LogInformation($"     - TipoParada: {parada.TipoParada}");
-                _logger.LogInformation($"     - Descripcion: {parada.Descripcion}");
-                _logger.LogInformation($"     - FechaHoraInicio: {parada.FechaHoraInicio}");
-                _logger.LogInformation($"     - FechaHoraFin: {parada.FechaHoraFin?.ToString() ?? "null"}");
-
                 _context.Paradas.Add(parada);
-                
-                _logger.LogInformation($"   Guardando cambios en la base de datos...");
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation($"✅ Parada registrada: ID={parada.ParadaID}, Tipo={dto.Tipo}, Duración={duracionMinutos ?? 0} min");
+                _logger.LogInformation($"✅ Parada registrada: ID={parada.ParadaID}");
 
                 return Ok(new
                 {
@@ -607,32 +845,17 @@ namespace CementoTrazabilidad.API.Controllers
                     {
                         paradaId = parada.ParadaID,
                         tipo = parada.TipoParada,
-                        descripcion = parada.Descripcion,
-                        duracionMinutos = duracionMinutos,
-                        estado = parada.Estado,
-                        impactoProductivo = parada.ImpactoProductivo
+                        descripcion = parada.Descripcion
                     }
-                });
-            }
-            catch (DbUpdateException dbEx)
-            {
-                _logger.LogError(dbEx, $"❌ ERROR DE BASE DE DATOS al registrar parada para turno {id}");
-                _logger.LogError($"   Inner Exception: {dbEx.InnerException?.Message}");
-                return StatusCode(500, new 
-                { 
-                    success = false, 
-                    message = "Error al guardar en la base de datos", 
-                    error = dbEx.InnerException?.Message ?? dbEx.Message
                 });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"❌ ERROR al registrar parada para turno {id}");
-                return StatusCode(500, new { success = false, message = "Error interno del servidor", error = ex.Message });
+                return StatusCode(500, new { success = false, message = "Error interno del servidor" });
             }
         }
 
-        // ✅ Método para obtener paradas de un turno
         [HttpGet("{id}/paradas")]
         public async Task<ActionResult<IEnumerable<ParadaDto>>> GetParadasTurno(int id)
         {
@@ -645,19 +868,18 @@ namespace CementoTrazabilidad.API.Controllers
                     .OrderByDescending(p => p.FechaHoraInicio)
                     .ToListAsync();
 
-                // ✅ CORRECCIÓN: Mapear correctamente las propiedades de la entidad Parada
                 var paradasDto = paradas.Select(p => new ParadaDto
                 {
                     ParadaID = p.ParadaID,
                     TurnoProduccionID = p.TurnoProduccionID,
-                    Tipo = p.TipoParada,  // ✅ Mapear TipoParada a Tipo
+                    Tipo = p.TipoParada,
                     Descripcion = p.Descripcion,
                     FechaHoraInicio = p.FechaHoraInicio,
                     FechaHoraFin = p.FechaHoraFin,
-                    DuracionMinutos = p.FechaHoraFin.HasValue ? 
-                        (int)(p.FechaHoraFin.Value - p.FechaHoraInicio).TotalMinutes : 
+                    DuracionMinutos = p.FechaHoraFin.HasValue ?
+                        (int)(p.FechaHoraFin.Value - p.FechaHoraInicio).TotalMinutes :
                         null,
-                    AccionesCorrectivas = null  // ✅ La entidad Parada no tiene esta propiedad
+                    AccionesCorrectivas = null
                 }).ToList();
 
                 _logger.LogInformation($"✅ Paradas obtenidas: {paradasDto.Count}");
@@ -666,76 +888,13 @@ namespace CementoTrazabilidad.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"❌ ERROR al obtener paradas del turno {id}");
-                _logger.LogError($"   Stack trace: {ex.StackTrace}");
-                return StatusCode(500, new { success = false, message = "Error interno del servidor", error = ex.Message });
+                return StatusCode(500, new { success = false, message = "Error interno del servidor" });
             }
         }
 
-        // ========== AGREGAR ESTE ENDPOINT AL CONTROLLER DE TURNOS ==========
-
-        [HttpGet("activo")]
-        [AllowAnonymous] // ✅ AGREGAR ESTA LÍNEA para permitir acceso sin autenticación
-        public async Task<ActionResult<TurnoProduccionDto>> GetTurnoActivo()
-        {
-            try
-            {
-                _logger.LogInformation("🔄 API - Buscando turno activo");
-                Console.WriteLine("🔄 API - Buscando turno activo");
-                
-                // Buscar el turno en estado "En Proceso"
-                var turnoActivo = await _context.TurnosProduccion
-                    .Where(t => t.Estado == "En Proceso")
-                    .OrderByDescending(t => t.FechaHoraInicio)
-                    .FirstOrDefaultAsync();
-
-                if (turnoActivo == null)
-                {
-                    _logger.LogInformation("ℹ️ No hay turno activo");
-                    Console.WriteLine("ℹ️ No hay turno activo");
-                    return NotFound(new { success = false, message = "No hay turno activo" });
-                }
-
-                var dto = new TurnoProduccionDto
-                {
-                    TurnoProduccionID = turnoActivo.TurnoProduccionID,
-                    Fecha = turnoActivo.Fecha,
-                    TurnoNumero = turnoActivo.TurnoNumero,
-                    Estado = turnoActivo.Estado,
-                    FechaHoraInicio = turnoActivo.FechaHoraInicio,
-                    FechaHoraFin = turnoActivo.FechaHoraFin,
-                    TotalBolsasElaboradas = 0,
-                    TotalBolsasRotas = 0,
-                    TotalToneladas = 0,
-                    Producciones = new List<ProduccionMaterialDto>(),
-                    Paradas = new List<ParadaDto>()
-                };
-
-                _logger.LogInformation($"✅ Turno activo encontrado: ID {dto.TurnoProduccionID}");
-                Console.WriteLine($"✅ Turno activo encontrado: ID {dto.TurnoProduccionID}");
-                
-                return Ok(new { success = true, data = dto });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "❌ Error al obtener turno activo");
-                Console.WriteLine($"❌ Error al obtener turno activo: {ex.Message}");
-                return StatusCode(500, new { success = false, message = ex.Message });
-            }
-        }
-
-        // ✅ Métodos auxiliares al final de la clase (antes del cierre de la clase)
-        private DateTime? CalcularHoraFinEsperada(DateOnly fecha, int turnoNumero)
-        {
-            var fechaBase = fecha.ToDateTime(TimeOnly.MinValue);
-            
-            return turnoNumero switch
-            {
-                1 => fechaBase.AddHours(14).AddMinutes(30),  // 14:30 mismo día
-                2 => fechaBase.AddHours(22).AddMinutes(30),  // 22:30 mismo día
-                3 => fechaBase.AddDays(1).AddHours(6),        // 06:00 día siguiente
-                _ => null
-            };
-        }
+        // ============================================
+        // 📋 MÉTODOS AUXILIARES
+        // ============================================
 
         private string ObtenerHorarioTexto(int turnoNumero)
         {
@@ -747,12 +906,106 @@ namespace CementoTrazabilidad.API.Controllers
                 _ => "N/A"
             };
         }
+
+        private HorarioTurnoDto ObtenerHorarioTurno(int turnoNumero)
+        {
+            return turnoNumero switch
+            {
+                1 => new HorarioTurnoDto { TurnoNumero = 1, HoraInicio = new TimeSpan(6, 0, 0), HoraFin = new TimeSpan(14, 30, 0) },
+                2 => new HorarioTurnoDto { TurnoNumero = 2, HoraInicio = new TimeSpan(14, 30, 0), HoraFin = new TimeSpan(22, 30, 0) },
+                3 => new HorarioTurnoDto { TurnoNumero = 3, HoraInicio = new TimeSpan(22, 30, 0), HoraFin = new TimeSpan(6, 0, 0) },
+                _ => new HorarioTurnoDto { TurnoNumero = turnoNumero, HoraInicio = new TimeSpan(6, 0, 0), HoraFin = new TimeSpan(14, 30, 0) }
+            };
+        }
+
+        private async Task<bool> HayProduccionProgramada(DateOnly fecha)
+        {
+            try
+            {
+                var programacion = await _context.Set<ProgramacionProduccion>()
+                    .FirstOrDefaultAsync(p => p.Fecha == fecha && p.Activa);
+
+                return programacion != null;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private async Task<bool> VerificarOverrideManual(int turnoNumero, DateOnly fecha)
+        {
+            try
+            {
+                var configuracion = await _context.Set<ConfiguracionTurno>()
+                    .FirstOrDefaultAsync(c => c.TurnoNumero == turnoNumero &&
+                                              c.Fecha == fecha &&
+                                              c.OverrideActivo);
+
+                return configuracion != null;
+            }
+            catch
+            {
+                return false;
+            }
+        }
     }
 
-    // DTO para finalizar turno
+    // ============================================
+    // 📋 DTOs
+    // ============================================
+
+    public class HorarioTurnoDto
+    {
+        public int TurnoNumero { get; set; }
+        public TimeSpan HoraInicio { get; set; }
+        public TimeSpan HoraFin { get; set; }
+    }
+
+    public class CrearOverrideDto
+    {
+        public int TurnoNumero { get; set; }
+        public DateOnly Fecha { get; set; }
+        public string Motivo { get; set; }
+    }
+
+    public class ProgramarProduccionDto
+    {
+        public DateOnly Fecha { get; set; }
+        public bool Activa { get; set; }
+        public string Motivo { get; set; }
+    }
+
     public class FinalizarTurnoDto
     {
         public DateTime? FechaHoraFin { get; set; }
         public string? Observaciones { get; set; }
+    }
+}
+
+// ============================================
+// 📋 ENTIDADES PARA LAS NUEVAS TABLAS
+// ============================================
+
+namespace CementoTrazabilidad.Core.Entidades
+{
+    public class ConfiguracionTurno
+    {
+        public int ConfiguracionTurnoID { get; set; }
+        public int TurnoNumero { get; set; }
+        public DateOnly Fecha { get; set; }
+        public bool OverrideActivo { get; set; }
+        public string Motivo { get; set; }
+        public string UsuarioModifico { get; set; }
+        public DateTime FechaModificacion { get; set; }
+    }
+
+    public class ProgramacionProduccion
+    {
+        public int ProgramacionProduccionID { get; set; }
+        public DateOnly Fecha { get; set; }
+        public bool Activa { get; set; }
+        public string Motivo { get; set; }
+        public DateTime FechaCreacion { get; set; }
     }
 }

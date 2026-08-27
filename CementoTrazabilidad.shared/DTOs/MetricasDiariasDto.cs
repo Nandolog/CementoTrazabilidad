@@ -1,4 +1,4 @@
-namespace CementoTrazabilidad.Shared.DTOs;
+﻿namespace CementoTrazabilidad.Shared.DTOs;
 
 public class MetricasDiariasDto
 {
@@ -12,9 +12,14 @@ public class MetricasDiariasDto
     public decimal ToneladasProducidasDiarias { get; set; }
     public int BolsasTotalesDiarias { get; set; }
     public int PaletsTotalesDiarios { get; set; }
-    
-    // FACTORES DIARIOS (calculados sobre el total del d�a)
-    public decimal FactorCorreccionDiario { get; set; } // FC = (HsProductivasTotales / HsMarchaTotales) * 100
+
+    // FACTORES DIARIOS (calculados sobre el total del día)
+    // FACTORES DIARIOS (calculados sobre el total del día)
+    /// <summary>
+    /// Factor de Confiabilidad Diario = (Horas Productivas Totales / Horas Marcha Totales) * 100
+    /// </summary>
+    public decimal FactorConfiabilidadDiario { get; set; } // ✅ CAMBIADO: FactorConfiabilidadDiario
+
     public decimal FactorProduccionDiario { get; set; } // FP = (TnDiarias/h / TnObjetivo/h) * 100
     
     public decimal ToneladasPorHoraDiarias { get; set; }

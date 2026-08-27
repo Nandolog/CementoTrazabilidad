@@ -22,6 +22,7 @@ namespace CementoTrazabilidad.Core.Entidades
         
         [Required]
         public decimal HorasMarcha { get; set; }
+        public string? Observaciones { get; set; }
 
         // Navigation properties
         [ForeignKey(nameof(TurnoProduccionID))]

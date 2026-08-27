@@ -4,16 +4,19 @@ using CementoTrazabilidad.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace CementoTrazabilidad.Infrastructure.Migrations
+namespace CementoTrazabilidad.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260826001640_AddConfiguracionTurnos")]
+    partial class AddConfiguracionTurnos
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -485,9 +488,6 @@ namespace CementoTrazabilidad.Infrastructure.Migrations
 
                     b.Property<int>("MaterialID")
                         .HasColumnType("int");
-
-                    b.Property<string>("Observaciones")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("TurnoProduccionID")
                         .HasColumnType("int");

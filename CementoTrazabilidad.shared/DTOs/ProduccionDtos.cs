@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using System;
+using System.ComponentModel.DataAnnotations;
 
 namespace CementoTrazabilidad.Shared.DTOs;
 
@@ -37,6 +38,7 @@ public class CreateProduccionDto
     [Required]
     [Range(0, 24)]
     public decimal HorasMarcha { get; set; }
+    public string? Observaciones { get; set; }
 }
 
 public class ParadaDto
