@@ -820,6 +820,34 @@
             turnosHoy = todosTurnos.Where(t => t.Fecha == hoy).OrderBy(t => t.TurnoNumero).ToList();
             turnoActual = turnosHoy.FirstOrDefault(t => t.Estado == "En Proceso");
 
+            // Si no hay turno en la lista del día, consultar el endpoint de "turno activo"
+            if (turnoActual == null)
+            {
+                var turnoActivo = await TurnoService.GetTurnoActivoAsync();
+                if (turnoActivo != null)
+                {
+                    // Mapear TurnoProduccionDto -> TurnoDto (compatibilidad con UI)
+                    var mapped = new TurnoDto
+                    {
+                        TurnoProduccionID = turnoActivo.TurnoProduccionID,
+                        Fecha = turnoActivo.Fecha,
+                        TurnoNumero = turnoActivo.TurnoNumero,
+                        Estado = turnoActivo.Estado,
+                        FechaHoraInicio = turnoActivo.FechaHoraInicio,
+                        FechaHoraFin = turnoActivo.FechaHoraFin
+                    };
+
+                    turnoActual = mapped;
+
+                    // Asegurar que el turno activo esté presente en la colección usada por la UI
+                    if (!turnosHoy.Any(t => t.TurnoProduccionID == mapped.TurnoProduccionID))
+                    {
+                        // Insertar al inicio para que botones y conteos funcionen
+                        turnosHoy.Insert(0, mapped);
+                    }
+                }
+            }
+
             if (turnoActual != null)
             {
                 Logger.LogInformation($"🔄 Cargando datos para turno {turnoActual.TurnoProduccionID}");

@@ -404,23 +404,28 @@ public class TurnoService : ITurnoService
         await ConfigureHttpClient();
         try
         {
-            Console.WriteLine($"🔄 Frontend - Obteniendo turno actual");
+            Console.WriteLine($"🔄 Frontend - Obteniendo turno actual (buscando turno activo)");
+            // Usar el endpoint especializado que devuelve el turno activo aunque haya cruzado medianoche
+            var turnoActivo = await GetTurnoActivoAsync();
 
-            // Buscar turno en proceso del día actual
-            var hoy = DateOnly.FromDateTime(DateTime.Today);
-            var turnosHoy = await GetTurnosDelDiaAsync(hoy);
-            var turnoActual = turnosHoy.FirstOrDefault(t => t.Estado == "En Proceso");
-
-            if (turnoActual != null)
+            if (turnoActivo != null)
             {
-                Console.WriteLine($"✅ Turno actual encontrado: ID {turnoActual.TurnoProduccionID}");
-            }
-            else
-            {
-                Console.WriteLine($"ℹ️ No hay turno actual en proceso");
+                var turnoDto = new TurnoDto
+                {
+                    TurnoProduccionID = turnoActivo.TurnoProduccionID,
+                    Fecha = turnoActivo.Fecha,
+                    TurnoNumero = turnoActivo.TurnoNumero,
+                    Estado = turnoActivo.Estado,
+                    FechaHoraInicio = turnoActivo.FechaHoraInicio,
+                    FechaHoraFin = turnoActivo.FechaHoraFin
+                };
+
+                Console.WriteLine($"✅ Turno actual (activo) encontrado: ID {turnoDto.TurnoProduccionID}");
+                return turnoDto;
             }
 
-            return turnoActual;
+            Console.WriteLine($"ℹ️ No hay turno activo");
+            return null;
         }
         catch (Exception ex)
         {
