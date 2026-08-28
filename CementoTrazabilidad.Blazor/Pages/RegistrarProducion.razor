@@ -3,11 +3,13 @@
 @attribute [Authorize(Roles = "Administrador,Supervisor,JefeTurno,Operario")]
 @using CementoTrazabilidad.Shared.DTOs
 @using Microsoft.AspNetCore.Components.Forms
+@using System.ComponentModel.DataAnnotations
 @inject ITurnoService TurnoService
 @inject IMaterialService MaterialService
 @inject ILoteService LoteService
 @inject NavigationManager Navigation
 @inject ILogger<RegistrarProducion> Logger
+@inject IJSRuntime JS
 
 <PageTitle>Registrar Bolsas Rotas - CementoTrazabilidad</PageTitle>
 
@@ -32,6 +34,17 @@
             <div class="card-body">
                 <EditForm Model="@produccionModel" OnValidSubmit="RegistrarProduccionAsync">
                     <DataAnnotationsValidator />
+
+                    <!-- Mantener LoteID en el formulario para validación -->
+                    <InputHidden bind-value="produccionModel.LoteID" />
+                    <ValidationMessage For="@(() => produccionModel.LoteID)" />
+
+                    @if (produccionModel.LoteID == null || produccionModel.LoteID == 0)
+                    {
+                        <div class="alert alert-danger">
+                            <strong>Atención:</strong> No hay un lote seleccionado. Abre el lote y luego registra las bolsas rotas.
+                        </div>
+                    }
 
                     <!-- ✅ Información del Lote (Solo lectura) -->
                     <div class="row g-4 mb-4">
@@ -122,7 +135,7 @@
                         <button type="button" class="btn btn-secondary btn-lg" @onclick="Cancelar" disabled="@registrando">
                             <i class="fas fa-times me-2"></i>Cancelar
                         </button>
-                        <button type="submit" class="btn btn-warning btn-lg" disabled="@registrando">
+                        <button type="submit" class="btn btn-warning btn-lg" disabled="@((registrando) || (produccionModel.LoteID == null) || (produccionModel.LoteID == 0))">
                             @if (registrando)
                             {
                                 <span class="spinner-border spinner-border-sm me-2"></span>
@@ -143,7 +156,9 @@
 
 @code {
     [Parameter] public int TurnoId { get; set; }
-    [Parameter] public int? LoteID { get; set; }
+    [Parameter]
+    [Microsoft.AspNetCore.Components.SupplyParameterFromQuery]
+    public int? LoteID { get; set; }
 
     private ProduccionModel produccionModel = new();
     private bool cargando = false;
@@ -168,7 +183,8 @@
                 var lote = await LoteService.GetLoteByIdAsync(LoteID.Value);
                 if (lote != null)
                 {
-                    produccionModel.LoteID = lote.LoteProduccionID;
+                    // CORRECCIÓN: usar la propiedad que el API devuelve en GetLotePorId
+                    produccionModel.LoteID = lote.LoteID;
                     produccionModel.NumeroLote = lote.NumeroLote;
                     produccionModel.CantidadBolsas = lote.CantidadBolsas;
                     produccionModel.MaterialID = lote.MaterialID;
@@ -188,6 +204,12 @@
         registrando = true;
         try
         {
+            if (produccionModel.LoteID == null || produccionModel.LoteID == 0)
+            {
+                await JS.InvokeVoidAsync("alert", "No se ha seleccionado un Lote válido. Abre el lote e inténtalo de nuevo.");
+                return;
+            }
+
             var dto = new UpdateLoteProduccionDto
             {
                 LoteID = produccionModel.LoteID ?? 0,
@@ -196,20 +218,26 @@
                 Observaciones = produccionModel.Observaciones
             };
 
-            var resultado = await LoteService.ActualizarLoteAsync(dto);
+            var result = await LoteService.ActualizarLoteAsync(dto);
 
-            if (resultado)
+            // Suponiendo que ActualizarLoteAsync devuelve un bool y no una tupla
+            bool success = result;
+            string message = string.Empty; // O asigna un mensaje adecuado si tienes acceso a uno
+
+            if (success)
             {
+                await JS.InvokeVoidAsync("alert", $"Datos guardados correctamente. Bolsas rotas: {produccionModel.BolsasRotas}");
                 Navigation.NavigateTo($"/turno/{TurnoId}");
             }
             else
             {
-                // TODO: Mostrar mensaje de error
+                await JS.InvokeVoidAsync("alert", $"Error al guardar los datos: {message}");
             }
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error al registrar bolsas rotas");
+            await JS.InvokeVoidAsync("alert", "Excepción al guardar. Revisa el log del servidor.");
         }
         finally
         {
@@ -225,6 +253,7 @@
     // Modelo para la página
     public class ProduccionModel
     {
+        [Required(ErrorMessage = "Debe seleccionar un lote.")]
         public int? LoteID { get; set; }
         public string NumeroLote { get; set; } = string.Empty;
         public int CantidadBolsas { get; set; }

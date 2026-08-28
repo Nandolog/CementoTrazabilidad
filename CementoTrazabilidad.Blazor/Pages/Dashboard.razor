@@ -179,7 +179,7 @@
                                         <td class="text-end">@FormatearHoras(metricas.HorasTeoricasTurno)</td>
                                     </tr>
                                     <tr>
-                                        <td class="fw-bold">Factor de Corrección</td>
+                                        <td class="fw-bold">Factor de Confiabilidad</td>
                                         <td class="text-end">
                                             <span class="badge @GetBadgeCumplimiento(metricas.FactorConfiabilidad) fs-6">
                                                 @metricas.FactorConfiabilidad.ToString("N2")%
@@ -258,8 +258,11 @@
                             {
                                 <table class="table table-sm table-borderless mb-0">
                                     <tbody>
+                                        <!-- ✅ Stock Inicial -->
                                         <tr>
-                                            <td class="fw-bold text-muted">Stock Inicial</td>
+                                            <td class="fw-bold text-muted">
+                                                <i class="fas fa-play-circle text-success me-1"></i>Inicial
+                                            </td>
                                             <td class="text-end">
                                                 <span class="badge bg-info">C32: @stockPalets.StockInicialC32</span>
                                             </td>
@@ -267,10 +270,14 @@
                                                 <span class="badge bg-success">F40: @stockPalets.StockInicialF40</span>
                                             </td>
                                         </tr>
+
+                                        <!-- ✅ Stock Final (si existe) -->
                                         @if (stockPalets.StockFinalC32.HasValue && stockPalets.StockFinalF40.HasValue)
                                         {
                                             <tr>
-                                                <td class="fw-bold text-muted">Stock Final</td>
+                                                <td class="fw-bold text-muted">
+                                                    <i class="fas fa-stop-circle text-danger me-1"></i>Final
+                                                </td>
                                                 <td class="text-end">
                                                     <span class="badge bg-info">C32: @stockPalets.StockFinalC32</span>
                                                 </td>
@@ -278,34 +285,44 @@
                                                     <span class="badge bg-success">F40: @stockPalets.StockFinalF40</span>
                                                 </td>
                                             </tr>
+
+                                            <!-- ✅ Variación (pendiente) -->
                                             <tr class="table-light">
-                                                <td class="fw-bold">Producción Neta</td>
-                                                <td class="text-end">
-                                                    <span class="badge @(stockPalets.ProduccionNetaC32 >= 0 ? "bg-success" : "bg-danger")">
-                                                        @stockPalets.ProduccionNetaC32.ToString("+#;-#;0")
-                                                    </span>
+                                                <td class="fw-bold text-muted">
+                                                    <i class="fas fa-exchange-alt me-1"></i>Variación
                                                 </td>
-                                                <td class="text-end">
-                                                    <span class="badge @(stockPalets.ProduccionNetaF40 >= 0 ? "bg-success" : "bg-danger")">
-                                                        @stockPalets.ProduccionNetaF40.ToString("+#;-#;0")
+                                                <td class="text-end" colspan="2">
+                                                    <span class="badge bg-secondary">
+                                                        Pendiente
                                                     </span>
+                                                    <small class="d-block text-muted">(requiere módulo despacho)</small>
                                                 </td>
                                             </tr>
+
+                                            <!-- ✅ Resumen -->
                                             <tr class="table-primary">
-                                                <td colspan="3" class="text-center fw-bold">
-                                                    <i class="fas fa-industry me-2"></i>TOTAL: 
-                                                    <span class="badge bg-primary fs-6 ms-2">
-                                                        @stockPalets.ProduccionTotalNeta palets
-                                                    </span>
+                                                <td colspan="3" class="text-center">
+                                                    <i class="fas fa-info-circle me-1"></i>
+                                                    <small class="text-muted">
+                                                        Inicial C32: @stockPalets.StockInicialC32 |
+                                                        Final C32: @stockPalets.StockFinalC32
+                                                    </small>
+                                                    <br />
+                                                    <small class="text-muted">
+                                                        Inicial F40: @stockPalets.StockInicialF40 |
+                                                        Final F40: @stockPalets.StockFinalF40
+                                                    </small>
                                                 </td>
                                             </tr>
                                         }
                                         else
                                         {
+                                            <!-- ⏳ Stock final pendiente -->
                                             <tr>
                                                 <td colspan="3" class="text-center">
                                                     <div class="alert alert-warning mb-0 py-2">
-                                                        <small><i class="fas fa-hourglass-half me-1"></i>Stock final pendiente</small>
+                                                        <i class="fas fa-hourglass-half me-1"></i>
+                                                        <small>Stock final pendiente de registrar</small>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -315,16 +332,16 @@
                             }
                             else
                             {
-                                <div class="alert alert-info mb-0">
+                                <!-- ❌ Sin stock registrado -->
+                                <div class="alert alert-info mb-0 text-center">
                                     <i class="fas fa-info-circle me-1"></i>
-                                    <small>No hay stock registrado</small>
+                                    <small>No hay stock registrado para este turno</small>
                                 </div>
                             }
                         </div>
                     </div>
                 </div>
             </div>
-
             <!-- ✅ FILA 3: PARADAS + ANDENES (2 columnas desiguales 8-4) -->
             <div class="row mb-4">
                 <!-- Paradas Clasificadas (más ancho) -->
@@ -425,7 +442,6 @@
                     </div>
                 </div>
             </div>
-
             <!-- ✅ FILA 4: CONSUMO DE BOLSAS (full width) -->
             <div class="row mb-4">
                 <div class="col-12">

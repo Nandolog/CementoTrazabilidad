@@ -30,7 +30,8 @@ public class LoteProduccion
     
     [MaxLength(500)]
     public string? Observaciones { get; set; }
-
+    [Range(0, int.MaxValue)]
+    public int BolsasRotas { get; set; } = 0;
     // NUEVAS PROPIEDADES PARA DISTRIBUCIÓN
     [MaxLength(20)]
     public string ZonaCarga { get; set; } = "Paletizado";

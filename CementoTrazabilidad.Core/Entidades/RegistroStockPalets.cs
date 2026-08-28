@@ -19,9 +19,9 @@ namespace CementoTrazabilidad.Core.Entidades
         public int? StockFinalF40 { get; set; }
         
         // Calculados (producción neta del turno)
-        public int ProduccionNetaC32 => (StockFinalC32 ?? StockInicialC32) - StockInicialC32;
-        public int ProduccionNetaF40 => (StockFinalF40 ?? StockInicialF40) - StockInicialF40;
-        public int ProduccionTotalNeta => ProduccionNetaC32 + ProduccionNetaF40;
+       // public int ProduccionNetaC32 => (StockFinalC32 ?? StockInicialC32) - StockInicialC32;
+       // public int ProduccionNetaF40 => (StockFinalF40 ?? StockInicialF40) - StockInicialF40;
+        //public int ProduccionTotalNeta => ProduccionNetaC32 + ProduccionNetaF40;
         
         // Timestamps
         public DateTime FechaHoraRegistroInicial { get; set; }

@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using CementoTrazabilidad.API.Services;
 using CementoTrazabilidad.Infrastructure.Data;
@@ -45,8 +46,30 @@ public class ExportController : ControllerBase
             // Obtener paradas detalladas
             var paradas = await ObtenerParadasDetalladas(turnoId);
 
+            // Obtener consumos de bolsas y mapear a DTO
+            var consumosEntities = await _context.ConsumoBolsas
+                .Include(c => c.ProveedorBolsa)
+                .Where(c => c.TurnoProduccionID == turnoId)
+                .ToListAsync();
+
+            var consumos = consumosEntities.Select(c => new ConsumoBolsasDTO
+            {
+                ConsumoBolsasID = c.ConsumoBolsasID,
+                ProveedorBolsaID = c.ProveedorBolsaID,
+                ProveedorNombre = c.ProveedorBolsa?.Nombre,
+                TurnoProduccionID = c.TurnoProduccionID,
+                ProduccionMaterialID = c.ProduccionMaterialID,
+                MaterialDescripcion = null,
+                CantidadBolsas = c.CantidadBolsas,
+                BolsasDefectuosas = c.BolsasDefectuosas,
+                FechaConsumo = c.FechaConsumo,
+                LoteBolsa = c.LoteBolsa,
+                TipoCemento = c.TipoCemento,
+                Observaciones = c.Observaciones
+            }).ToList();
+
             // Generar Excel
-            var excel = _excelService.GenerarReporteTurno(metricas, MapearTurnoDto(turno), paradas);
+            var excel = _excelService.GenerarReporteTurno(metricas, MapearTurnoDto(turno), paradas, consumos);
 
             var fileName = $"Dashboard_Turno{metricas.TurnoNumero}_{metricas.Fecha:yyyyMMdd}.xlsx";
             

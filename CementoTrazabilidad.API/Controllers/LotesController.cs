@@ -376,17 +376,68 @@ public class LotesController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> UpdateLote(int id, [FromBody] UpdateLoteProduccionDto dto)
     {
-        if (id != dto.LoteID)
-            return BadRequest("El ID del lote no coincide");
+        if (dto == null)
+            return BadRequest(new { success = false, message = "Solicitud inválida" });
+
+        // Normalizar id
+        if (dto.LoteID == 0) dto.LoteID = id;
+        dto.LoteID = id;
 
         var lote = await _context.LotesProduccion.FindAsync(id);
         if (lote == null)
-            return NotFound();
+            return NotFound(new { success = false, message = "Lote no encontrado" });
 
-        // ✅ SOLO actualizar estos campos
         lote.Observaciones = dto.Observaciones;
+        lote.BolsasRotas = dto.BolsasRotas;
+        // Logging inicial
+        _logger.LogInformation("UpdateLote llamado. Ruta id={id}. DTO: LoteID={LoteID}, BolsasRotas={BolsasRotas}, HorasMarcha={HorasMarcha}",
+            id, dto?.LoteID, dto?.BolsasRotas, dto?.HorasMarcha);
 
-        await _context.SaveChangesAsync();
-        return NoContent();
+        try
+        {
+            _logger.LogInformation("Lote cargado desde BD: LoteID={LoteID}, TurnoID={TurnoID}, MaterialID={MaterialID}, FechaHoraInicio={FechaHoraInicio}, FechaHoraFin={FechaHoraFin}",
+                lote.LoteID, lote.TurnoID, lote.MaterialID, lote.FechaHoraInicio, lote.FechaHoraFin);
+
+            // Normalizar valores recibidos (evitar NRE)
+            int bolsasRotas = dto?.BolsasRotas ?? 0;
+            decimal horas = dto?.HorasMarcha ?? 0m;
+
+            var produccion = await _context.ProduccionMaterial
+                .FirstOrDefaultAsync(p => p.TurnoProduccionID == lote.TurnoID && p.MaterialID == lote.MaterialID);
+
+            if (produccion != null)
+            {
+                produccion.BolsasRotas = bolsasRotas;
+                produccion.HorasMarcha = horas;
+            }
+            else
+            {
+                if (horas == 0 && lote.FechaHoraFin.HasValue)
+                {
+                    horas = (decimal)((lote.FechaHoraFin.Value - lote.FechaHoraInicio).TotalHours);
+                    if (horas < 0) horas = 0;
+                }
+
+                var nuevaProduccion = new ProduccionMaterial
+                {
+                    TurnoProduccionID = lote.TurnoID,
+                    MaterialID = lote.MaterialID,
+                    BolsasElaboradas = lote.CantidadBolsas,
+                    BolsasRotas = bolsasRotas,
+                    HorasMarcha = horas
+                };
+                _context.ProduccionMaterial.Add(nuevaProduccion);
+            }
+
+            _logger.LogInformation("Guardando ProduccionMaterial: BolsasRotas={BolsasRotas}, HorasMarcha={HorasMarcha}", bolsasRotas, horas);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { success = true, message = "Lote y producción actualizados" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al actualizar lote y/o producción asociada");
+            return StatusCode(500, new { success = false, message = ex.Message });
+        }
     }
 }

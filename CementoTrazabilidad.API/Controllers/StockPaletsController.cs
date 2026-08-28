@@ -168,9 +168,10 @@ namespace CementoTrazabilidad.API.Controllers
                 StockInicialF40 = registro.StockInicialF40,
                 StockFinalC32 = registro.StockFinalC32,
                 StockFinalF40 = registro.StockFinalF40,
-                ProduccionNetaC32 = registro.ProduccionNetaC32,
-                ProduccionNetaF40 = registro.ProduccionNetaF40,
-                ProduccionTotalNeta = registro.ProduccionTotalNeta,
+                //Se agregara cuando este el modulo de Despacho de Palets
+                //ProduccionNetaC32 = registro.ProduccionNetaC32,
+                //ProduccionNetaF40 = registro.ProduccionNetaF40,
+                //ProduccionTotalNeta = registro.ProduccionTotalNeta,
                 FechaHoraRegistroInicial = registro.FechaHoraRegistroInicial,
                 FechaHoraRegistroFinal = registro.FechaHoraRegistroFinal,
                 ObservacionesInicio = registro.ObservacionesInicio,

@@ -7,6 +7,7 @@
 @inject ITurnoService TurnoService
 @inject IPersonalService PersonalService
 @inject IConsumoBolsasService ConsumoBolsasService
+@inject ILoteService LoteService
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 @inject ILogger<DetalleTurno> Logger
@@ -84,7 +85,7 @@
                 </div>
             </div>
 
-            <!-- Personal asignado - ✅ CORREGIDO -->
+            <!-- Personal asignado -->
             <div class="col-md-4 mb-3">
                 <div class="card h-100">
                     <div class="card-header bg-light">
@@ -322,9 +323,80 @@
                 }
             </div>
         </div>
-    }
-</div>
 
+        <!-- ✅ Lotes del Turno -->
+        <div class="card mt-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-boxes me-2"></i>Lotes del Turno
+                </h5>
+            </div>
+            <div class="card-body">
+                @if (lotesDelTurno.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>N° Lote</th>
+                                    <th>Material</th>
+                                    <th>Bolsas</th>
+                                    <th>Rango</th>
+                                    <th>Bolsas Rotas</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var lote in lotesDelTurno.OrderByDescending(l => l.LoteID))
+                                {
+                                    <tr>
+                                        <td><strong>@lote.NumeroLote</strong></td>
+                                        <td>@lote.MaterialNombre</td>
+                                        <td>@lote.CantidadBolsas.ToString("N0")</td>
+                                        <td>@lote.FechaHoraInicio.ToString("HH:mm") - @(lote.FechaHoraFin?.ToString("HH:mm") ?? "En curso")</td>
+                                        <td>
+                                            <span class="badge @(lote.BolsasRotas > 0 ? "bg-danger" : "bg-secondary")">
+                                                @lote.BolsasRotas
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-warning btn-sm"
+                                                    @onclick="() => AbrirModalRegistrarRotas(lote)">
+                                                <i class="fas fa-edit me-1"></i>Registrar Bolsas Rotas
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                            <tfoot>
+                                <tr class="fw-bold table-active">
+                                    <td colspan="2">TOTAL</td>
+                                    <td>@lotesDelTurno.Sum(l => l.CantidadBolsas).ToString("N0") bolsas</td>
+                                    <td colspan="2">@lotesDelTurno.Sum(l => l.BolsasRotas) rotas</td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="alert alert-info mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        No hay lotes registrados para este turno.
+                        <button class="btn btn-sm btn-primary ms-3" @onclick="RegistrarProduccion">
+                            <i class="fas fa-plus me-1"></i>Crear Primer Lote
+                        </button>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+ <!-- Cierra else de turno == null -->
+</div> <!-- Cierra container-fluid -->
+<!-- ============================================ -->
+<!-- MODALES (FUERA DEL CONTAINER)                -->
+<!-- ============================================ -->
 <!-- Modal para registrar consumo de bolsas -->
 @if (mostrarModalConsumo)
 {
@@ -398,7 +470,7 @@
     </div>
 }
 
-<!-- ✅ NUEVO MODAL - Asignar Personal -->
+<!-- Modal - Asignar Personal -->
 @if (mostrarModalAsignarPersonal)
 {
     <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
@@ -491,7 +563,7 @@
 
                         <div class="mt-3 d-flex justify-content-between">
                             <span class="text-muted">
-                                Disponibles: @personalDisponible.Count | 
+                                Disponibles: @personalDisponible.Count |
                                 Seleccionados: @personalSeleccionadoIds.Count(kv => kv.Value)
                             </span>
 
@@ -518,6 +590,132 @@
     </div>
 }
 
+<!-- ✅ NUEVO MODAL - Registrar Bolsas Rotas -->
+@if (mostrarModalRegistrarRotas)
+{
+    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title">
+                        <i class="fas fa-times-circle me-2"></i>
+                        Registrar Bolsas Rotas - Lote @loteSeleccionado?.NumeroLote
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModalRegistrarRotas"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(errorRegistroRotas))
+                    {
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            @errorRegistroRotas
+                        </div>
+                    }
+
+                    <!-- ✅ SOLO LOTE (sin Material) -->
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Lote</label>
+                            <div class="form-control bg-light">@loteSeleccionado?.NumeroLote</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Bolsas Elaboradas</label>
+                            <div class="form-control bg-light">@loteSeleccionado?.CantidadBolsas.ToString("N0")</div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Bolsas Rotas Actuales</label>
+                            <div class="form-control bg-light">
+                                <span class="badge @(loteSeleccionado?.BolsasRotas > 0 ? "bg-danger" : "bg-secondary")">
+                                    @(loteSeleccionado?.BolsasRotas ?? 0)
+                                </span>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <!-- Espacio vacío o puedes poner algo extra aquí -->
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">
+                            <i class="fas fa-times-circle text-danger me-2"></i>
+                            Nuevas Bolsas Rotas <span class="text-danger">*</span>
+                        </label>
+                        <InputNumber class="form-control form-control-lg"
+                                     @bind-Value="nuevasBolsasRotas"
+                                     min="0"
+                                     max="@(loteSeleccionado?.CantidadBolsas ?? 0)"
+                                     placeholder="Ej: 5" />
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Cantidad de bolsas defectuosas (máximo @(loteSeleccionado?.CantidadBolsas ?? 0))
+                        </small>
+                    </div>
+
+                    <!-- ❌ ELIMINADO: Campo Horas de Marcha -->
+                    <!-- <div class="mb-3">
+                        <label class="form-label fw-bold">
+                            <i class="fas fa-clock me-2"></i>
+                            Horas de Marcha
+                        </label>
+                        <InputNumber class="form-control"
+                                     @bind-Value="horasMarchaRegistro"
+                                     step="0.1"
+                                     min="0"
+                                     max="24"
+                                     placeholder="Ej: 8.5" />
+                        <small class="text-muted">Horas efectivas de producción (0 - 24)</small>
+                    </div> -->
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">
+                            <i class="fas fa-comment me-2"></i>
+                            Observaciones
+                        </label>
+                        <InputTextArea class="form-control"
+                                       @bind-Value="observacionesRotas"
+                                       rows="2"
+                                       placeholder="Comentarios adicionales..." />
+                    </div>
+
+                    <div class="alert alert-warning">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
+                            <div>
+                                <strong>Confirmación:</strong> Se registrarán
+                                <span class="badge bg-danger text-white fs-6">@nuevasBolsasRotas</span>
+                                bolsas rotas para el lote
+                                <strong>@loteSeleccionado?.NumeroLote</strong>
+                                <br />
+                                <small>Total acumulado: <strong>@(loteSeleccionado?.BolsasRotas + nuevasBolsasRotas)</strong> bolsas rotas</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2">
+                        <button type="button" class="btn btn-secondary" @onclick="CerrarModalRegistrarRotas" disabled="@registrandoRotas">
+                            Cancelar
+                        </button>
+                        <button type="button" class="btn btn-warning" @onclick="GuardarBolsasRotas" disabled="@(registrandoRotas || nuevasBolsasRotas <= 0)">
+                            @if (registrandoRotas)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                                <span>Registrando...</span>
+                            }
+                            else
+                            {
+                                <i class="fas fa-save me-2"></i>
+                                <span>Registrar Bolsas Rotas</span>
+                            }
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
 @code {
     [Parameter] public int TurnoId { get; set; }
 
@@ -526,6 +724,7 @@
     private List<ConsumoBolsasDTO> consumosBolsas = new();
     private List<ProveedorBolsaDTO> proveedores = new();
     private ParadaDto? paradaActiva;
+    private List<LoteProduccionDto> lotesDelTurno = new();
 
     private bool cargando = true;
     private bool mostrarModalConsumo = false;
@@ -533,7 +732,7 @@
     private bool iniciandoParada = false;
     private string errorParada = "";
 
-    // ✅ Variables para modal de asignar personal
+    // Variables para modal de asignar personal
     private bool mostrarModalAsignarPersonal = false;
     private List<PersonalDto> personalDisponible = new();
     private Dictionary<int, bool> personalSeleccionadoIds = new();
@@ -541,6 +740,15 @@
     private bool cargandoPersonalDisponible = false;
     private bool asignandoPersonal = false;
     private string mensajeErrorAsignacion = "";
+
+    // ✅ Variables para el modal de registro de bolsas rotas
+    private bool mostrarModalRegistrarRotas = false;
+    private LoteProduccionDto? loteSeleccionado = null;
+    private int nuevasBolsasRotas = 0;
+    private decimal horasMarchaRegistro = 0;
+    private string observacionesRotas = string.Empty;
+    private bool registrandoRotas = false;
+    private string errorRegistroRotas = string.Empty;
 
     private ConsumoBolsasCreateDTO nuevoConsumo = new();
     private CreateParadaDto nuevaParada = new();
@@ -550,6 +758,7 @@
         if (TurnoId > 0)
         {
             await CargarDetalleTurno();
+            await CargarLotesDelTurno();
         }
     }
 
@@ -597,6 +806,18 @@
         }
     }
 
+    private async Task CargarLotesDelTurno()
+    {
+        try
+        {
+            lotesDelTurno = await LoteService.GetLotesPorTurnoAsync(TurnoId) ?? new List<LoteProduccionDto>();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al cargar lotes del turno");
+        }
+    }
+
     private async Task CargarParadaActiva()
     {
         var paradas = await TurnoService.GetParadasTurnoAsync(TurnoId);
@@ -604,7 +825,7 @@
     }
 
     // ==================== MÉTODOS DE ASIGNACIÓN DE PERSONAL ====================
-    
+
     private async Task AbrirModalAsignarPersonal()
     {
         try
@@ -855,7 +1076,7 @@
 
     private void RegistrarProduccion()
     {
-        Navigation.NavigateTo($"/turno/{TurnoId}/produccion/nueva");
+        Navigation.NavigateTo($"/registro-produccion");
     }
 
     private void VerParadas()
@@ -930,6 +1151,98 @@
         finally
         {
             guardando = false;
+            StateHasChanged();
+        }
+    }
+
+    // ==================== MÉTODOS PARA BOLSAS ROTAS ====================
+
+    private void AbrirModalRegistrarRotas(LoteProduccionDto lote)
+    {
+        loteSeleccionado = lote;
+        nuevasBolsasRotas = 0;
+        horasMarchaRegistro = 0;
+        observacionesRotas = string.Empty;
+        errorRegistroRotas = string.Empty;
+        mostrarModalRegistrarRotas = true;
+        StateHasChanged();
+    }
+
+    private void CerrarModalRegistrarRotas()
+    {
+        if (!registrandoRotas)
+        {
+            mostrarModalRegistrarRotas = false;
+            loteSeleccionado = null;
+            nuevasBolsasRotas = 0;
+            horasMarchaRegistro = 0;
+            observacionesRotas = string.Empty;
+            errorRegistroRotas = string.Empty;
+        }
+    }
+
+    private async Task GuardarBolsasRotas()
+    {
+        if (loteSeleccionado == null)
+        {
+            errorRegistroRotas = "No hay lote seleccionado";
+            return;
+        }
+
+        if (nuevasBolsasRotas <= 0)
+        {
+            errorRegistroRotas = "Debe ingresar una cantidad mayor a 0";
+            return;
+        }
+
+        if (nuevasBolsasRotas > loteSeleccionado.CantidadBolsas)
+        {
+            errorRegistroRotas = $"Las bolsas rotas no pueden superar las bolsas elaboradas ({loteSeleccionado.CantidadBolsas})";
+            return;
+        }
+
+        registrandoRotas = true;
+        errorRegistroRotas = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            var dto = new UpdateLoteProduccionDto
+            {
+                LoteID = loteSeleccionado.LoteID,
+                BolsasRotas = loteSeleccionado.BolsasRotas + nuevasBolsasRotas,
+                HorasMarcha = horasMarchaRegistro > 0 ? horasMarchaRegistro : 0,
+                Observaciones = string.IsNullOrEmpty(observacionesRotas)
+                    ? $"Registro de bolsas rotas: +{nuevasBolsasRotas}"
+                    : $"{observacionesRotas} (Rotas: +{nuevasBolsasRotas})"
+            };
+
+            var result = await LoteService.ActualizarLoteAsync(dto);
+
+            if (result)
+            {
+                await JS.InvokeVoidAsync("alert",
+                    $"✅ Bolsas rotas registradas exitosamente!\n" +
+                    $"Lote: {loteSeleccionado.NumeroLote}\n" +
+                    $"Nuevas rotas: {nuevasBolsasRotas}\n" +
+                    $"Total rotas: {loteSeleccionado.BolsasRotas + nuevasBolsasRotas}");
+
+                CerrarModalRegistrarRotas();
+                await CargarLotesDelTurno();
+            }
+            else
+            {
+                errorRegistroRotas = "Error al guardar las bolsas rotas. Intente nuevamente.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al registrar bolsas rotas");
+            errorRegistroRotas = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            registrandoRotas = false;
             StateHasChanged();
         }
     }

@@ -18,6 +18,7 @@ namespace CementoTrazabilidad.Shared.DTOs
         public DateTime? FechaHoraFin { get; set; }
         public int CantidadBolsas { get; set; }
         public string? Observaciones { get; set; }
+
         public string TipoRegistro { get; set; } = "Manual";
         public string ZonaCarga { get; set; } = "Paletizado";
         public int BolsasAnden { get; set; }

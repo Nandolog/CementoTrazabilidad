@@ -6,14 +6,14 @@ namespace CementoTrazabilidad.API.Services;
 
 public interface IExcelExportService
 {
-    byte[] GenerarReporteTurno(MetricasTurnoDto metricas, TurnoDto turno, List<ParadasDetalladasDto> paradas);
+    byte[] GenerarReporteTurno(MetricasTurnoDto metricas, TurnoDto turno, List<ParadasDetalladasDto> paradas, List<ConsumoBolsasDTO> consumos);
     byte[] GenerarReporteDiario(List<MetricasTurnoDto> metricasTurnos, List<TurnoDto> turnos, MetricasDiariasDto metricasDiarias);
     byte[] GenerarReporteMensual(List<MetricasTurnoDto> metricasTurnos, List<TurnoDto> turnos, int año, int mes); // ✅ NUEVO
 }
 
 public class ExcelExportService : IExcelExportService
 {
-    public byte[] GenerarReporteTurno(MetricasTurnoDto metricas, TurnoDto turno, List<ParadasDetalladasDto> paradas)
+    public byte[] GenerarReporteTurno(MetricasTurnoDto metricas, TurnoDto turno, List<ParadasDetalladasDto> paradas, List<ConsumoBolsasDTO> consumos)
     {
         using var workbook = new XLWorkbook();
         var ws = workbook.Worksheets.Add($"Turno {metricas.TurnoNumero}");
@@ -199,6 +199,36 @@ public class ExcelExportService : IExcelExportService
         // Ajustar columnas
         ws.Columns().AdjustToContents();
         
+        // ============ SECCIÓN: CONSUMO DE BOLSAS ============
+        if (consumos != null && consumos.Any())
+        {
+            row += 2;
+            ws.Cell(row, 1).Value = "CONSUMO DE BOLSAS";
+            FormatearEncabezadoSeccion(ws.Range(row, 1, row, 4), XLColor.MediumBlue);
+    
+            row++;
+            ws.Cell(row, 1).Value = "Proveedor";
+            ws.Cell(row, 2).Value = "Cantidad";
+            ws.Cell(row, 3).Value = "Bolsas Defectuosas";
+            ws.Cell(row, 4).Value = "Observaciones";
+            FormatearEncabezadoTabla(ws.Range(row, 1, row, 4));
+    
+            row++;
+            foreach (var c in consumos)
+            {
+                ws.Cell(row, 1).Value = string.IsNullOrWhiteSpace(c.ProveedorNombre) ? "Desconocido" : c.ProveedorNombre;
+                ws.Cell(row, 2).Value = c.CantidadBolsas;
+                ws.Cell(row, 3).Value = c.BolsasDefectuosas;
+                ws.Cell(row, 4).Value = c.Observaciones ?? string.Empty;
+                ws.Cell(row, 2).Style.NumberFormat.Format = "#,##0";
+                ws.Cell(row, 3).Style.NumberFormat.Format = "#,##0";
+                row++;
+            }
+    
+            ws.Range(row - consumos.Count - 1, 1, row - 1, 4).Style.Border.SetOutsideBorder(XLBorderStyleValues.Thin);
+            ws.Columns().AdjustToContents();
+        }
+
         using var stream = new MemoryStream();
         workbook.SaveAs(stream);
         return stream.ToArray();
