@@ -6,19 +6,20 @@ namespace CementoTrazabilidad.API.Services;
 
 public interface IExcelExportService
 {
-    byte[] GenerarReporteTurno(MetricasTurnoDto metricas, TurnoDto turno, List<ParadasDetalladasDto> paradas, List<ConsumoBolsasDTO> consumos);
+    byte[] GenerarReporteTurno(MetricasTurnoDto metricas, TurnoDto turno, List<ParadasDetalladasDto> paradas, List<ConsumoBolsasDTO> consumos, List<PersonalTurnoDto> personal,RegistroStockPaletsDto stockPalets);
     byte[] GenerarReporteDiario(List<MetricasTurnoDto> metricasTurnos, List<TurnoDto> turnos, MetricasDiariasDto metricasDiarias);
     byte[] GenerarReporteMensual(List<MetricasTurnoDto> metricasTurnos, List<TurnoDto> turnos, int año, int mes); // ✅ NUEVO
 }
 
 public class ExcelExportService : IExcelExportService
 {
-    public byte[] GenerarReporteTurno(MetricasTurnoDto metricas, TurnoDto turno, List<ParadasDetalladasDto> paradas, List<ConsumoBolsasDTO> consumos)
+    public byte[] GenerarReporteTurno(MetricasTurnoDto metricas, TurnoDto turno, List<ParadasDetalladasDto> paradas, List<ConsumoBolsasDTO> consumos, List<PersonalTurnoDto> personal,RegistroStockPaletsDto stockPalets)
     {
         using var workbook = new XLWorkbook();
         var ws = workbook.Worksheets.Add($"Turno {metricas.TurnoNumero}");
 
         // ============ ENCABEZADO ============
+
         var row = 1;
         ws.Cell(row, 1).Value = "REPORTE DE PRODUCCIÓN - TURNO";
         ws.Range(row, 1, row, 6).Merge().Style
@@ -39,6 +40,93 @@ public class ExcelExportService : IExcelExportService
         ws.Cell(row, 4).Value = "Horario:";
         ws.Cell(row, 5).Value = ObtenerHorarioTurno(metricas.TurnoNumero);
 
+        // ============ SECCIÓN: PERSONAL DEL TURNO ============
+        row += 2;
+        ws.Cell(row, 1).Value = "PERSONAL DEL TURNO";
+        FormatearEncabezadoSeccion(ws.Range(row, 1, row, 4), XLColor.Purple);
+
+        row++;
+        ws.Cell(row, 1).Value = "Nombre";
+        ws.Cell(row, 2).Value = "Rol";
+        ws.Cell(row, 3).Value = "Legajo";
+        ws.Cell(row, 4).Value = "Rol en Turno";
+        FormatearEncabezadoTabla(ws.Range(row, 1, row, 4));
+
+        row++;
+        if (personal != null && personal.Any())
+        {
+            foreach (var p in personal)
+            {
+                ws.Cell(row, 1).Value = p.PersonalNombre ?? "Sin nombre";
+                ws.Cell(row, 2).Value = p.RolPersonal ?? "N/A";
+                ws.Cell(row, 3).Value = p.PersonalLegajo ?? "N/A";
+                ws.Cell(row, 4).Value = p.RolTurno ?? "Operario";
+                row++;
+            }
+        }
+        else
+        {
+            ws.Cell(row, 1).Value = "No hay personal asignado";
+            ws.Range(row, 1, row, 4).Merge().Style.Font.SetItalic();
+            row++;
+        }
+        // ============ SECCIÓN: STOCK DE PALETS ============
+        row += 2;
+        ws.Cell(row, 1).Value = "STOCK DE PALETS";
+        FormatearEncabezadoSeccion(ws.Range(row, 1, row, 4), XLColor.Teal);
+
+        row++;
+        ws.Cell(row, 1).Value = "Tipo";
+        ws.Cell(row, 2).Value = "C32";
+        ws.Cell(row, 3).Value = "F40";
+        ws.Cell(row, 4).Value = "Total";
+        FormatearEncabezadoTabla(ws.Range(row, 1, row, 4));
+
+        row++;
+        if (stockPalets != null)
+        {
+            // Stock Inicial
+            ws.Cell(row, 1).Value = "Stock Inicial";
+            ws.Cell(row, 2).Value = stockPalets.StockInicialC32;
+            ws.Cell(row, 3).Value = stockPalets.StockInicialF40;
+            ws.Cell(row, 4).Value = stockPalets.StockInicialC32 + stockPalets.StockInicialF40;
+            ws.Cell(row, 4).Style.Font.SetBold();
+            row++;
+
+            // Stock Final (si existe)
+            if (stockPalets.StockFinalC32.HasValue && stockPalets.StockFinalF40.HasValue)
+            {
+                ws.Cell(row, 1).Value = "Stock Final";
+                ws.Cell(row, 2).Value = stockPalets.StockFinalC32;
+                ws.Cell(row, 3).Value = stockPalets.StockFinalF40;
+                ws.Cell(row, 4).Value = stockPalets.StockFinalC32.Value + stockPalets.StockFinalF40.Value;
+                ws.Cell(row, 4).Style.Font.SetBold();
+                row++;
+
+                // Variación (pendiente)
+                ws.Cell(row, 1).Value = "Variación";
+                ws.Cell(row, 2).Value = "Pendiente";
+                ws.Cell(row, 3).Value = "Pendiente";
+                ws.Cell(row, 4).Value = "Pendiente";
+                ws.Range(row, 1, row, 4).Style.Fill.SetBackgroundColor(XLColor.LightYellow);
+                row++;
+            }
+            else
+            {
+                ws.Cell(row, 1).Value = "Stock Final";
+                ws.Cell(row, 2).Value = "Pendiente";
+                ws.Cell(row, 3).Value = "Pendiente";
+                ws.Cell(row, 4).Value = "Pendiente";
+                ws.Range(row, 1, row, 4).Style.Fill.SetBackgroundColor(XLColor.LightYellow);
+                row++;
+            }
+        }
+        else
+        {
+            ws.Cell(row, 1).Value = "No hay stock registrado";
+            ws.Range(row, 1, row, 4).Merge().Style.Font.SetItalic();
+            row++;
+        }
         // ============ SECCIÓN: TIEMPOS ============
         row += 2;
         ws.Cell(row, 1).Value = "TIEMPOS DEL TURNO";
@@ -177,24 +265,24 @@ public class ExcelExportService : IExcelExportService
         ws.Range(row, 1, row, 4).Style.Fill.SetBackgroundColor(XLColor.LightGray).Font.SetBold();
 
         // ✅ SECCIÓN: INFORMACIÓN ADICIONAL (después de PARADAS)
-        row += 2;
-        ws.Cell(row, 1).Value = "INFORMACIÓN DE CARGA";
-        FormatearEncabezadoSeccion(ws.Range(row, 1, row, 3), XLColor.DarkGray);
-        
-        row++;
-        ws.Cell(row, 1).Value = "Andenes Utilizados:";
-        ws.Cell(row, 2).Value = metricas.CantidadAndenes;
-        
-        row++;
-        ws.Cell(row, 1).Value = "Capacidad Promedio/Anden:";
-        ws.Cell(row, 2).Value = metricas.CantidadAndenes > 0 
-            ? $"~{metricas.BolsasNetas / metricas.CantidadAndenes:N0} bolsas" 
-            : "N/A";
-        
-        row++;
-        ws.Cell(row, 1).Value = "Observación:";
-        ws.Cell(row, 2).Value = "La cantidad de andenes varía según pedidos del cliente";
-        ws.Range(row, 1, row, 2).Style.Fill.SetBackgroundColor(XLColor.LightYellow);
+        // row += 2;
+        //ws.Cell(row, 1).Value = "INFORMACIÓN DE CARGA";
+        //FormatearEncabezadoSeccion(ws.Range(row, 1, row, 3), XLColor.DarkGray);
+
+        //row++;
+        //ws.Cell(row, 1).Value = "Andenes Utilizados:";
+        //ws.Cell(row, 2).Value = metricas.CantidadAndenes;
+
+        //row++;
+        //ws.Cell(row, 1).Value = "Capacidad Promedio/Anden:";
+        //ws.Cell(row, 2).Value = metricas.CantidadAndenes > 0 
+        //  ? $"~{metricas.BolsasNetas / metricas.CantidadAndenes:N0} bolsas" 
+        //: "N/A";
+
+        //row++;
+        //ws.Cell(row, 1).Value = "Observación:";
+        //ws.Cell(row, 2).Value = "La cantidad de andenes varía según pedidos del cliente";
+        //ws.Range(row, 1, row, 2).Style.Fill.SetBackgroundColor(XLColor.LightYellow);
 
         // Ajustar columnas
         ws.Columns().AdjustToContents();

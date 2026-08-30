@@ -166,9 +166,11 @@ public class MetricasController : ControllerBase
                 .Where(l => l.TurnoID == turnoId)
                 .SumAsync(l => (int?)l.CantidadBolsas) ?? 0;
 
-            var bolsasRotas = await _context.ProduccionMaterial
-                .Where(p => p.TurnoProduccionID == turnoId)
-                .SumAsync(p => (int?)p.BolsasRotas) ?? 0;
+            var bolsasRotas = await _context.LotesProduccion
+                 .Where(l => l.TurnoID == turnoId)
+                 .SumAsync(l => (int?)l.BolsasRotas) ?? 0;
+
+
 
             var bolsasNetas = bolsasRealizadas - bolsasRotas;
 

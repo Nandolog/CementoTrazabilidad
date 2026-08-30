@@ -1,10 +1,13 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Authorization;
-using CementoTrazabilidad.API.Services;
+﻿using CementoTrazabilidad.API.Services;
 using CementoTrazabilidad.Infrastructure.Data;
-using Microsoft.EntityFrameworkCore;
 using CementoTrazabilidad.Shared.DTOs;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using System.Net.Http;
+using System.Net.Http.Json;
+using static System.Net.WebRequestMethods;
 
 namespace CementoTrazabilidad.API.Controllers;
 
@@ -16,12 +19,17 @@ public class ExportController : ControllerBase
     private readonly IExcelExportService _excelService;
     private readonly ApplicationDbContext _context;
     private readonly ILogger<ExportController> _logger;
+     
 
-    public ExportController(IExcelExportService excelService, ApplicationDbContext context, ILogger<ExportController> logger)
+    public ExportController(
+        IExcelExportService excelService,
+        ApplicationDbContext context,
+        ILogger<ExportController> logger)   
     {
         _excelService = excelService;
         _context = context;
         _logger = logger;
+       
     }
 
     [HttpGet("dashboard/turno/{turnoId}")]
@@ -69,7 +77,60 @@ public class ExportController : ControllerBase
             }).ToList();
 
             // Generar Excel
-            var excel = _excelService.GenerarReporteTurno(metricas, MapearTurnoDto(turno), paradas, consumos);
+            // ✅ Obtener personal del turno
+            var personalTurno = await _context.PersonalTurno
+                .Include(pt => pt.Personal)
+                .Where(pt => pt.TurnoProduccionID == turnoId)
+                .Select(pt => new PersonalTurnoDto
+                {
+                    PersonalTurnoID = pt.PersonalTurnoID,
+                    TurnoProduccionID = pt.TurnoProduccionID,
+                    PersonalID = pt.PersonalID,
+                    RolTurno = pt.RolTurno ?? "Operario",
+                    PersonalNombre = pt.Personal != null ? pt.Personal.Nombre : "Sin nombre",
+                    PersonalLegajo = pt.Personal != null ? pt.Personal.Legajo : "N/A",
+                    RolPersonal = pt.Personal != null ? pt.Personal.Rol : "N/A",
+                    Activo = pt.Personal != null ? pt.Personal.Activo : false
+                })
+                .ToListAsync();
+            // ✅ Obtener stock de palets del turno
+            // ✅ Obtener stock de palets del turno directamente desde la base de datos
+            RegistroStockPaletsDto? stockPalets = null;
+            try
+            {
+                var stockEntity = await _context.RegistrosStockPalets
+                    .FirstOrDefaultAsync(s => s.TurnoProduccionID == turnoId);
+
+                if (stockEntity != null)
+                {
+                    stockPalets = new RegistroStockPaletsDto
+                    {
+                        RegistroStockPaletsID = stockEntity.RegistroStockPaletsID,
+                        TurnoProduccionID = stockEntity.TurnoProduccionID,
+                        StockInicialC32 = stockEntity.StockInicialC32,
+                        StockInicialF40 = stockEntity.StockInicialF40,
+                        StockFinalC32 = stockEntity.StockFinalC32,
+                        StockFinalF40 = stockEntity.StockFinalF40,
+                        FechaHoraRegistroInicial = stockEntity.FechaHoraRegistroInicial,
+                        FechaHoraRegistroFinal = stockEntity.FechaHoraRegistroFinal,
+                        ObservacionesInicio = stockEntity.ObservacionesInicio,
+                        ObservacionesFin = stockEntity.ObservacionesFin
+                    };
+                    _logger.LogInformation($"✅ Stock de palets encontrado para turno {turnoId}");
+                }
+                else
+                {
+                    _logger.LogInformation($"ℹ️ No hay stock registrado para turno {turnoId}");
+                }
+            }
+            catch (Exception exStock)
+            {
+                _logger.LogWarning($"⚠️ Error al obtener stock de palets: {exStock.Message}");
+                stockPalets = null;
+            }
+
+            // Generar Excel con el personal
+            var excel = _excelService.GenerarReporteTurno(metricas, MapearTurnoDto(turno), paradas, consumos, personalTurno, stockPalets);
 
             var fileName = $"Dashboard_Turno{metricas.TurnoNumero}_{metricas.Fecha:yyyyMMdd}.xlsx";
             
@@ -287,12 +348,14 @@ public class ExportController : ControllerBase
             .Sum(p => ((p.FechaHoraFin ?? DateTime.Now) - p.FechaHoraInicio).TotalMinutes);
 
         // Obtener producción
-        var producciones = await _context.ProduccionMaterial
-            .Where(p => p.TurnoProduccionID == turnoId)
-            .ToListAsync();
+        var bolsasRealizadas = await _context.LotesProduccion
+       .Where(l => l.TurnoID == turnoId)
+       .SumAsync(l => (int?)l.CantidadBolsas) ?? 0;
 
-        var bolsasRealizadas = producciones.Sum(p => p.BolsasElaboradas);
-        var bolsasRotas = producciones.Sum(p => p.BolsasRotas);
+        var bolsasRotas = await _context.LotesProduccion
+            .Where(l => l.TurnoID == turnoId)
+            .SumAsync(l => (int?)l.BolsasRotas) ?? 0;
+
         var bolsasNetas = bolsasRealizadas - bolsasRotas;
         var toneladasProducidas = bolsasNetas * 0.05m; // 50kg = 0.05 toneladas
 

@@ -45,7 +45,8 @@ public class LotesController : ControllerBase
                     MaterialNombre = l.Material != null ? l.Material.Nombre : "Sin material",
                     ZonaCarga = l.ZonaCarga,
                     BolsasAnden = l.BolsasAnden,
-                    BolsasPaletizado = l.BolsasPaletizado
+                    BolsasPaletizado = l.BolsasPaletizado,
+                    BolsasRotas = l.BolsasRotas
                 })
                 .ToListAsync();
 
