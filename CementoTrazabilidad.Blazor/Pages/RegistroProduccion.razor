@@ -39,9 +39,7 @@
                                 <p class="mb-2">
                                     <strong>Inicio:</strong> @turnoActivo.FechaHoraInicio.ToString("dd/MM/yyyy HH:mm")
                                 </p>
-                                <p class="mb-2">
-                                    <strong>Personal:</strong> <span class="text-muted">No disponible</span>
-                                </p>
+                                
                             </div>
                             <div class="col-md-6">
                                 <p class="mb-2">
@@ -291,6 +289,7 @@
                                 <th>Destino</th>
                                 <th>Distribucion</th>
                                 <th>Tipo</th>
+                                <th>Personal</th>
                                 <th>Observaciones</th>
                             </tr>
                         </thead>
@@ -324,6 +323,14 @@
                                             <span class="text-primary">@lote.CantidadBolsas</span> <text>paletizado</text>
                                         }
                                     </td>
+                                    <td>
+                                         <span class="badge @(lote.TipoRegistro == "Manual" ? "bg-primary" : "bg-secondary")">
+                                            @lote.TipoRegistro
+                                                </span>
+                                </td>
+                        <td>
+                        <span class="badge bg-info">@(lote.PersonalNombre ?? "No disponible")</span>
+                    </td>
                                     <td>
                                         <span class="badge @(lote.TipoRegistro == "Manual" ? "bg-primary" : "bg-secondary")">
                                             @lote.TipoRegistro

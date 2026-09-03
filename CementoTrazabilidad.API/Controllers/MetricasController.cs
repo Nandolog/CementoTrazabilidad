@@ -16,9 +16,12 @@ public class MetricasController : ControllerBase
     private readonly ILogger<MetricasController> _logger;
     private const double TOLERANCIA_MINUTOS = 1.0;
 
+    // ============================================
+    // ✅ OBJETIVOS ACTUALIZADOS
+    // ============================================
     private const decimal OBJETIVO_TN_POR_HORA = 80m;
-    private const int OBJETIVO_PALETS_DIARIO = 640;
-    private const double OBJETIVO_HORAS_PRODUCTIVAS = 7.7;
+    private const int BOLSAS_POR_PALET = 40;
+    private const int BOLSAS_POR_HORA = 1600;
 
     public MetricasController(ApplicationDbContext context, ILogger<MetricasController> logger)
     {
@@ -34,15 +37,27 @@ public class MetricasController : ControllerBase
     {
         return turnoNumero switch
         {
-            1 => TimeSpan.FromHours(8.17),  // 8h 10m (06:00 a 14:10)
-            2 => TimeSpan.FromHours(7.67),  // 7h 40m (14:10 a 22:30)
-            3 => TimeSpan.FromHours(7.50),  // 7h 30m (22:30 a 06:00)
+            1 => TimeSpan.FromHours(8.17),  // 8h 10m
+            2 => TimeSpan.FromHours(7.67),  // 7h 40m
+            3 => TimeSpan.FromHours(7.50),  // 7h 30m
             _ => TimeSpan.FromHours(8)
         };
     }
 
+    private int ObtenerObjetivoPaletsTurno(int turnoNumero)
+    {
+        var horas = ObtenerDuracionTeorica(turnoNumero);
+        return (int)(horas.TotalHours * BOLSAS_POR_HORA / BOLSAS_POR_PALET);
+    }
+
+    private int ObtenerObjetivoBolsasTurno(int turnoNumero)
+    {
+        var horas = ObtenerDuracionTeorica(turnoNumero);
+        return (int)(horas.TotalHours * BOLSAS_POR_HORA);
+    }
+
     // ============================================
-    // 📋 MÉTODO PRINCIPAL - CORREGIDO
+    // 📋 MÉTODO PRINCIPAL
     // ============================================
 
     [HttpGet("turno/{turnoId}")]
@@ -57,20 +72,22 @@ public class MetricasController : ControllerBase
             if (turno == null)
                 return NotFound(new { message = "Turno no encontrado" });
 
-            // 2. Obtener duración teórica
-            var duracionTeorica = ObtenerDuracionTeorica(turno.TurnoNumero);
-
-            // 3. Calcular horas de marcha CORRECTAMENTE
-            var inicio = turno.FechaHoraInicio;
-
-            // Si el turno está Programado, no tiene inicio real
+            // 2. Validar que el turno no esté Programado
             if (turno.Estado == "Programado")
             {
                 _logger.LogWarning($"⚠️ Turno {turnoId} está en estado Programado, no se puede calcular métricas");
                 return BadRequest(new { success = false, message = "El turno aún no ha sido iniciado" });
             }
 
+            // 3. Calcular duración teórica y objetivos
+            var duracionTeorica = ObtenerDuracionTeorica(turno.TurnoNumero);
+            var objetivoPaletsTurno = ObtenerObjetivoPaletsTurno(turno.TurnoNumero);
+            var objetivoBolsasTurno = ObtenerObjetivoBolsasTurno(turno.TurnoNumero);
+
+            // 4. Calcular horas de marcha
+            var inicio = turno.FechaHoraInicio;
             DateTime fin;
+
             if (turno.Estado == "En Proceso")
             {
                 // Turno activo - usar hora actual, limitada al fin programado
@@ -111,11 +128,12 @@ public class MetricasController : ControllerBase
                 horasMarcha = duracionTeorica;
             }
 
-            // 4. Obtener paradas
+            // 5. Obtener paradas
             var paradas = await _context.Paradas
                 .Where(p => p.TurnoProduccionID == turnoId)
                 .ToListAsync();
 
+            // 5a. Calcular paradas clasificadas
             var paradasMecanicas = paradas
                 .Where(p => !string.IsNullOrEmpty(p.TipoParada) && p.TipoParada.Contains("Mecanica", StringComparison.OrdinalIgnoreCase))
                 .Sum(p => ((p.FechaHoraFin ?? DateTime.Now) - p.FechaHoraInicio).TotalMinutes);
@@ -132,45 +150,39 @@ public class MetricasController : ControllerBase
                 .Where(p => !string.IsNullOrEmpty(p.TipoParada) && p.TipoParada.Contains("Circunstancial", StringComparison.OrdinalIgnoreCase))
                 .Sum(p => ((p.FechaHoraFin ?? DateTime.Now) - p.FechaHoraInicio).TotalMinutes);
 
-            var totalParadas = TimeSpan.FromMinutes(paradasMecanicas + paradasElectricas + paradasOperativas + paradasCircunstanciales);
+            // 5b. Calcular Stock Lleno (para mostrar por separado)
+            var paradasStockLleno = paradas
+                .Where(p => !string.IsNullOrEmpty(p.TipoParada) && p.TipoParada.Contains("Stock Lleno", StringComparison.OrdinalIgnoreCase))
+                .Sum(p => ((p.FechaHoraFin ?? DateTime.Now) - p.FechaHoraInicio).TotalMinutes);
+
+            // 5c. Total de paradas (todas)
+            var totalParadas = TimeSpan.FromMinutes(paradasMecanicas + paradasElectricas + paradasOperativas + paradasCircunstanciales + paradasStockLleno);
             var totalParadasMinutes = totalParadas.TotalMinutes;
 
-            // 5. Eventos de carga
+            // 6. Eventos de carga
             var eventosCarga = await _context.EventosCarga
                 .Where(e => e.TurnoProduccionID == turnoId)
                 .OrderBy(e => e.FechaHora)
                 .ToListAsync();
 
-            // 6. Calcular tiempos por zona
+            // 7. Calcular tiempos por zona
             var tiempoAndenes = CalcularTiempoPorZona(eventosCarga, "Anden");
             var tiempoPaletizado = CalcularTiempoPorZona(eventosCarga, "Palet");
-            var tiempoStockLleno = CalcularTiempoPorZona(eventosCarga, "Tinglado");
-
-            // Fallback para StockLleno desde paradas
-            if (tiempoStockLleno <= 0)
-            {
-                tiempoStockLleno = CalcularTiempoStockFromParadas(paradas);
-                if (tiempoStockLleno > 0)
-                    _logger.LogDebug("TiempoStockLleno calculado desde paradas: {minutos}", tiempoStockLleno);
-            }
-
-            // 7. Calcular cambio de camión
             var tiempoCambioCamion = CalcularTiempoCambioCamionDesdeEventos(eventosCarga, "Anden");
-            if (tiempoCambioCamion <= 0)
-            {
-                _logger.LogDebug("No se encontraron pares Fin->Inicio en eventos Anden para CambioCamion");
-            }
 
-            // 8. Producción
+            // 8. Horas productivas = HorasMarcha - Todas las paradas
+            var horasProductivasMinutes = horasMarcha.TotalMinutes - totalParadasMinutes;
+            if (horasProductivasMinutes < 0) horasProductivasMinutes = 0;
+            var horasProductivas = TimeSpan.FromMinutes(horasProductivasMinutes);
+
+            // 9. Producción
             var bolsasRealizadas = await _context.LotesProduccion
                 .Where(l => l.TurnoID == turnoId)
                 .SumAsync(l => (int?)l.CantidadBolsas) ?? 0;
 
             var bolsasRotas = await _context.LotesProduccion
-                 .Where(l => l.TurnoID == turnoId)
-                 .SumAsync(l => (int?)l.BolsasRotas) ?? 0;
-
-
+                .Where(l => l.TurnoID == turnoId)
+                .SumAsync(l => (int?)l.BolsasRotas) ?? 0;
 
             var bolsasNetas = bolsasRealizadas - bolsasRotas;
 
@@ -182,13 +194,8 @@ public class MetricasController : ControllerBase
 
             var toneladasProducidas = (bolsasNetas * pesoPromedioBolsa) / 1000m;
 
-            // 9. HORAS PRODUCTIVAS = HorasMarcha - Paradas - CambioCamion - StockLlenoPalets
-            var horasProductivasMinutes = horasMarcha.TotalMinutes - totalParadasMinutes - tiempoCambioCamion - tiempoStockLleno;
-            if (horasProductivasMinutes < 0) horasProductivasMinutes = 0;
-            var horasProductivas = TimeSpan.FromMinutes(horasProductivasMinutes);
-            var horasProductivasDecimal = (decimal)horasProductivas.TotalHours;
-
             // 10. Tn/h
+            var horasProductivasDecimal = (decimal)horasProductivas.TotalHours;
             var tnPorHora = horasProductivasDecimal > 0
                 ? toneladasProducidas / horasProductivasDecimal
                 : 0m;
@@ -206,15 +213,13 @@ public class MetricasController : ControllerBase
             // 13. Eficiencia Global = Confiabilidad * Productividad / 100
             var eficienciaGlobal = Math.Round(factorConfiabilidad * factorProduccion / 100m, 2);
 
-            // 14. CumplimientoHoras = HorasProductivas / HorasTeoricasTurno * 100
-            var horasTeoricasTurno = duracionTeorica;
-            var cumplimientoHoras = horasTeoricasTurno.TotalHours > 0
-                ? Math.Round((decimal)(horasProductivas.TotalHours / horasTeoricasTurno.TotalHours * 100.0), 2)
+            // 14. Cumplimiento de horas
+            var cumplimientoHoras = duracionTeorica.TotalHours > 0
+                ? Math.Round((decimal)(horasProductivas.TotalHours / duracionTeorica.TotalHours * 100.0), 2)
                 : 0m;
 
             // 15. Palets
-            var paletsObjetivoTurno = OBJETIVO_PALETS_DIARIO / 3;
-            var paletsRealizados = (int)(bolsasNetas / 40);
+            var paletsRealizados = (int)(bolsasNetas / BOLSAS_POR_PALET);
 
             // 16. Cantidad de andenes desde eventos
             var cantidadAndenes = eventosCarga
@@ -225,14 +230,11 @@ public class MetricasController : ControllerBase
                 .Distinct()
                 .Count();
 
-            // 17. Validación: HorasMarcha = Paradas + CambioCamion + StockLlenoPalets + HorasProductivas
-            var sumaParciales = totalParadasMinutes + tiempoCambioCamion + tiempoStockLleno + horasProductivas.TotalMinutes;
-            var diferenciaContraMarcha = Math.Abs(sumaParciales - horasMarcha.TotalMinutes);
-            var sumaCoincideConMarcha = diferenciaContraMarcha <= TOLERANCIA_MINUTOS;
-
-            if (!sumaCoincideConMarcha)
-                _logger.LogWarning("Desajuste de tiempos turno {turnoId}: diferencia {minutos} minutos",
-                    turnoId, diferenciaContraMarcha);
+            // 17. Objetivos diarios
+            var objetivoPaletsTurno1 = ObtenerObjetivoPaletsTurno(1);
+            var objetivoPaletsTurno2 = ObtenerObjetivoPaletsTurno(2);
+            var objetivoPaletsTurno3 = ObtenerObjetivoPaletsTurno(3);
+            var paletsObjetivoDiario = objetivoPaletsTurno1 + objetivoPaletsTurno2 + objetivoPaletsTurno3;
 
             // 18. Construir DTO
             var metricas = new MetricasTurnoDto
@@ -244,7 +246,7 @@ public class MetricasController : ControllerBase
                 HorasMarcha = horasMarcha,
                 HorasProductivas = horasProductivas,
                 TotalParadas = totalParadas,
-                HorasTeoricasTurno = horasTeoricasTurno,
+                HorasTeoricasTurno = duracionTeorica,
 
                 ParadasMecanicas = Math.Round(paradasMecanicas, 2),
                 ParadasElectricas = Math.Round(paradasElectricas, 2),
@@ -254,7 +256,7 @@ public class MetricasController : ControllerBase
                 TiempoAndenes = Math.Round(tiempoAndenes, 2),
                 TiempoPaletizado = Math.Round(tiempoPaletizado, 2),
                 TiempoCambioCamion = Math.Round(tiempoCambioCamion, 2),
-                TiempoStockLleno = Math.Round(tiempoStockLleno, 2),
+                TiempoStockLleno = Math.Round(paradasStockLleno, 2),
 
                 BolsasRealizadas = bolsasRealizadas,
                 BolsasRotas = bolsasRotas,
@@ -270,14 +272,14 @@ public class MetricasController : ControllerBase
                 EficienciaGlobal = Math.Round(eficienciaGlobal, 2),
 
                 ToneladasPorHoraObjetivo = OBJETIVO_TN_POR_HORA,
-                HorasProductivasObjetivo = TimeSpan.FromHours(OBJETIVO_HORAS_PRODUCTIVAS),
-                PaletsObjetivoDiario = OBJETIVO_PALETS_DIARIO,
-                PaletsObjetivoTurno = paletsObjetivoTurno,
+                HorasProductivasObjetivo = duracionTeorica,
+                PaletsObjetivoDiario = paletsObjetivoDiario,
+                PaletsObjetivoTurno = objetivoPaletsTurno,
 
                 CumplimientoProduccion = Math.Round(factorProduccion, 2),
                 CumplimientoHoras = cumplimientoHoras,
-                CumplimientoPalets = paletsObjetivoTurno > 0
-                    ? Math.Round((decimal)paletsRealizados / paletsObjetivoTurno * 100, 2)
+                CumplimientoPalets = objetivoPaletsTurno > 0
+                    ? Math.Round((decimal)paletsRealizados / objetivoPaletsTurno * 100, 2)
                     : 0m
             };
 
@@ -291,13 +293,13 @@ public class MetricasController : ControllerBase
                     HorasMarchaMinutes = Math.Round(horasMarcha.TotalMinutes, 2),
                     ParadasMinutes = Math.Round(totalParadasMinutes, 2),
                     TiempoCambioCamion = Math.Round(tiempoCambioCamion, 2),
-                    TiempoStockLleno = Math.Round(tiempoStockLleno, 2),
+                    TiempoStockLleno = Math.Round(paradasStockLleno, 2),
                     HorasProductivasMinutes = Math.Round(horasProductivas.TotalMinutes, 2),
-                    SumaParciales = Math.Round(sumaParciales, 2),
-                    CoincideConHorasMarcha = sumaCoincideConMarcha,
-                    DiferenciaContraMarcha = Math.Round(diferenciaContraMarcha, 2),
+                    SumaParciales = Math.Round(horasMarcha.TotalMinutes - horasProductivas.TotalMinutes, 2),
                     DuracionTeoricaHoras = Math.Round(duracionTeorica.TotalHours, 2),
-                    EstadoTurno = turno.Estado
+                    EstadoTurno = turno.Estado,
+                    ObjetivoPaletsTurno = objetivoPaletsTurno,
+                    ObjetivoBolsasTurno = objetivoBolsasTurno
                 }
             });
         }
@@ -343,23 +345,6 @@ public class MetricasController : ControllerBase
             tiempoTotal += (DateTime.Now - ultimoInicio.Value).TotalMinutes;
 
         return tiempoTotal;
-    }
-
-    private double CalcularTiempoStockFromParadas(IEnumerable<Parada> paradas)
-    {
-        double minutos = 0;
-        var consultas = paradas.Where(p =>
-            !string.IsNullOrEmpty(p.TipoParada) &&
-            (p.TipoParada.IndexOf("Tinglado", StringComparison.OrdinalIgnoreCase) >= 0 ||
-             p.TipoParada.IndexOf("Stock", StringComparison.OrdinalIgnoreCase) >= 0)
-        );
-
-        foreach (var p in consultas)
-        {
-            minutos += ((p.FechaHoraFin ?? DateTime.Now) - p.FechaHoraInicio).TotalMinutes;
-        }
-
-        return minutos;
     }
 
     private double CalcularTiempoCambioCamionDesdeEventos(IEnumerable<EventoCarga> eventos, string zona)

@@ -142,8 +142,11 @@ public class ParadaController : ControllerBase
                 TipoParada = paradaDto.Tipo ?? "No especificado",
                 Descripcion = paradaDto.Descripcion ?? "Sin descripción",
                 FechaHoraInicio = paradaDto.FechaHoraInicio,
-                FechaHoraFin = paradaDto.FechaHoraFin
-                // ✅ NO asignar: Motivo, Estado, AccionesCorrectivas, PersonalResponsableID (no existen en BD)
+                FechaHoraFin = paradaDto.FechaHoraFin,
+                MotivoFalla = paradaDto.Motivo ?? "No especificado",
+                AccionCorrectiva = paradaDto.AccionesCorrectivas ?? "No especificada",
+                Responsable = User.Identity?.Name ?? "No asignado"
+
             };
 
             _context.Paradas.Add(parada);

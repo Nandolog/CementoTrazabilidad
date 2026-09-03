@@ -1,11 +1,12 @@
-﻿using CementoTrazabilidad.Core.Entidades;
+﻿using CementoTrazabilidad.API.Authorization; // ✅ AGREGAR
+using CementoTrazabilidad.Core.Entidades;
 using CementoTrazabilidad.Infrastructure.Data;
 using CementoTrazabilidad.Shared.DTOs;
-using CementoTrazabilidad.API.Authorization; // ✅ AGREGAR
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization; // ✅ AGREGAR
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using System.Security.Claims;
 
 namespace CementoTrazabilidad.API.Controllers;
 
@@ -30,6 +31,7 @@ public class LotesController : ControllerBase
         try
         {
             var lotes = await _context.LotesProduccion
+                .Include(l => l.Personal)
                 .Where(l => l.TurnoID == turnoId)
                 .Select(l => new LoteProduccionDto
                 {
@@ -46,7 +48,9 @@ public class LotesController : ControllerBase
                     ZonaCarga = l.ZonaCarga,
                     BolsasAnden = l.BolsasAnden,
                     BolsasPaletizado = l.BolsasPaletizado,
-                    BolsasRotas = l.BolsasRotas
+                    BolsasRotas = l.BolsasRotas,
+                    PersonalID = l.PersonalID,
+                    PersonalNombre = l.Personal != null ? l.Personal.Nombre : "No disponible"
                 })
                 .ToListAsync();
 
@@ -153,6 +157,55 @@ public class LotesController : ControllerBase
 
             Console.WriteLine($"✅ Material: ID={material.MaterialID}, Nombre={material.Nombre}");
 
+            // ✅ OBTENER EL PERSONAL DEL USUARIO ACTUAL
+            // Intentar obtener el nombre desde diferentes fuentes
+            var usuarioNombre = User.FindFirst("name")?.Value ??
+                                User.FindFirst(ClaimTypes.Name)?.Value ??
+                                User.Identity?.Name ??
+                                "Sistema";
+
+            _logger.LogInformation($"👤 Usuario autenticado: {usuarioNombre}");
+            Console.WriteLine($"👤 Usuario autenticado: {usuarioNombre}");
+
+            // Buscar personal por nombre o legajo
+            var personal = await _context.Personal
+                .FirstOrDefaultAsync(p => p.Nombre == usuarioNombre || p.Legajo == usuarioNombre);
+
+            if (personal == null)
+            {
+                _logger.LogWarning($"⚠️ No se encontró personal para: {usuarioNombre}");
+                Console.WriteLine($"⚠️ No se encontró personal para: {usuarioNombre}");
+
+                // ✅ Buscar el primer personal activo como fallback
+                personal = await _context.Personal.FirstOrDefaultAsync(p => p.Activo);
+
+                if (personal == null)
+                {
+                    // ✅ Crear personal por defecto
+                    var nuevoPersonal = new Personal
+                    {
+                        Nombre = usuarioNombre,
+                        Legajo = "AUTO-" + DateTime.Now.Ticks.ToString().Substring(0, 8),
+                        Rol = "Operario",
+                        Activo = true
+                    };
+                    _context.Personal.Add(nuevoPersonal);
+                    await _context.SaveChangesAsync();
+                    personal = nuevoPersonal;
+                    _logger.LogInformation($"✅ Personal creado: ID={personal.PersonalID}, Nombre={personal.Nombre}");
+                    Console.WriteLine($"✅ Personal creado: ID={personal.PersonalID}, Nombre={personal.Nombre}");
+                }
+                else
+                {
+                    _logger.LogInformation($"✅ Usando personal fallback: ID={personal.PersonalID}, Nombre={personal.Nombre}");
+                    Console.WriteLine($"✅ Usando personal fallback: ID={personal.PersonalID}, Nombre={personal.Nombre}");
+                }
+            }
+            else
+            {
+                Console.WriteLine($"✅ Personal encontrado: ID={personal.PersonalID}, Nombre={personal.Nombre}");
+            }
+
             // 3. Buscar último lote del turno
             var ultimoLote = await _context.LotesProduccion
                 .Where(l => l.TurnoID == turnoIdFinal)
@@ -188,6 +241,7 @@ public class LotesController : ControllerBase
                 _context.ProduccionMaterial.Add(produccion);
                 Console.WriteLine($"✅ ProduccionMaterial agregado");
             }
+            
 
             // 7. Crear el lote
             var lote = new LoteProduccion
@@ -204,7 +258,8 @@ public class LotesController : ControllerBase
                 // Mapeo de distribución
                 ZonaCarga = string.IsNullOrWhiteSpace(dto.ZonaCarga) ? "Paletizado" : dto.ZonaCarga,
                 BolsasAnden = dto.BolsasAnden,
-                BolsasPaletizado = dto.BolsasPaletizado
+                BolsasPaletizado = dto.BolsasPaletizado,
+                 PersonalID = personal?.PersonalID
             };
 
             Console.WriteLine($"💾💾💾 GUARDANDO LOTE 💾💾💾");
@@ -284,7 +339,7 @@ public class LotesController : ControllerBase
                     TipoRegistro = l.TipoRegistro,
                     Observaciones = l.Observaciones,
                     MaterialID = l.MaterialID,
-                    MaterialNombre = l.Material != null ? l.Material.Nombre : "Sin material",
+                    MaterialNombre = l.Material != null ? l.Material.Descripcion : "Sin material",
                     ZonaCarga = l.ZonaCarga,
                     BolsasAnden = l.BolsasAnden,
                     BolsasPaletizado = l.BolsasPaletizado
@@ -344,6 +399,7 @@ public class LotesController : ControllerBase
         {
             var lote = await _context.LotesProduccion
                 .Include(l => l.Material)
+                .Include(l => l.Personal)
                 .Where(l => l.LoteID == loteId)
                 .Select(l => new LoteProduccionDto
                 {
@@ -356,10 +412,13 @@ public class LotesController : ControllerBase
                     TipoRegistro = l.TipoRegistro,
                     Observaciones = l.Observaciones,
                     MaterialID = l.MaterialID,
-                    MaterialNombre = l.Material != null ? l.Material.Nombre : "Sin material",
+                    MaterialNombre = l.Material != null ? l.Material.Descripcion : "Sin material" ,
                     ZonaCarga = l.ZonaCarga,
                     BolsasAnden = l.BolsasAnden,
-                    BolsasPaletizado = l.BolsasPaletizado
+                    BolsasPaletizado = l.BolsasPaletizado,
+                    PersonalID = l.PersonalID,
+                    PersonalNombre = l.Personal != null ? l.Personal.Nombre : "No disponible"
+
                 })
                 .FirstOrDefaultAsync();
 

@@ -62,7 +62,7 @@ namespace CementoTrazabilidad.Infrastructure.Data
                 entity.Property(e => e.FechaHoraFin).HasColumnName("FechaHoraFin");
 
                 // Ignorar propiedades que NO existen en la base de datos
-                entity.Ignore(e => e.Motivo);
+               // entity.Ignore(e => e.Motivo);
                 entity.Ignore(e => e.Estado);
                 entity.Ignore(e => e.PersonalResponsableID);
                 entity.Ignore(e => e.Duracion);
@@ -81,18 +81,20 @@ namespace CementoTrazabilidad.Infrastructure.Data
                 entity.ToTable("Material");
                 entity.HasKey(e => e.MaterialID);
 
-                // Mapear propiedades a columnas con nombres diferentes
                 entity.Property(e => e.MaterialID).HasColumnName("MaterialID");
                 entity.Property(e => e.Codigo).HasColumnName("Codigo");
-                entity.Property(e => e.Descripcion).HasColumnName("descripcion"); // ✅ minúscula en BD
-                entity.Property(e => e.PesoBolsa).HasColumnName("PesoPorBolsa").HasPrecision(18, 2); // ✅ nombre diferente
+
+                // ✅ Mapear Nombre a "descripcion"
+                entity.Property(e => e.Nombre).HasColumnName("descripcion");
+
+                entity.Property(e => e.PesoBolsa).HasColumnName("PesoPorBolsa").HasPrecision(18, 2);
                 entity.Property(e => e.DensidadKGm3).HasColumnName("DensildadKGm3").HasPrecision(18, 2);
                 entity.Property(e => e.Activo).HasColumnName("Activo");
 
-                // ✅ Ignorar propiedades que NO existen en la BD
-                entity.Ignore(e => e.Nombre); // No existe en BD, solo "descripcion"
-                entity.Ignore(e => e.UnidadMedida); // No existe en BD
-                entity.Ignore(e => e.FechaCreacion); // No existe en BD
+                // ✅ Eliminar estos Ignore
+                // entity.Ignore(e => e.Nombre);
+                // entity.Ignore(e => e.UnidadMedida);
+                // entity.Ignore(e => e.FechaCreacion);
             });
 
             // Configuraciones de entidades

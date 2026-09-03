@@ -829,7 +829,10 @@ namespace CementoTrazabilidad.API.Controllers
                     TipoParada = dto.Tipo ?? "No especificado",
                     Descripcion = dto.Descripcion ?? "Sin descripción",
                     FechaHoraInicio = dto.FechaHoraInicio,
-                    FechaHoraFin = dto.FechaHoraFin
+                    FechaHoraFin = dto.FechaHoraFin,
+                    MotivoFalla = dto.Motivo ?? "No especificado",
+                    AccionCorrectiva = dto.AccionesCorrectivas ?? "No especificada",
+                    Responsable = User.Identity?.Name ?? "No asignado"
                 };
 
                 _context.Paradas.Add(parada);
@@ -845,7 +848,10 @@ namespace CementoTrazabilidad.API.Controllers
                     {
                         paradaId = parada.ParadaID,
                         tipo = parada.TipoParada,
-                        descripcion = parada.Descripcion
+                        descripcion = parada.Descripcion,
+                          motivoFalla = parada.MotivoFalla,
+                        accionCorrectiva = parada.AccionCorrectiva,
+                        responsable = parada.Responsable
                     }
                 });
             }

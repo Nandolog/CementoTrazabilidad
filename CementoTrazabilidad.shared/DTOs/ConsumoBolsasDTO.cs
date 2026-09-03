@@ -14,6 +14,7 @@ namespace CementoTrazabilidad.Shared.DTOs
         public string? LoteBolsa { get; set; }
         public string? TipoCemento { get; set; }
         public string? Observaciones { get; set; }
+        public string? MaterialNombre { get; set; } = null;
     }
 
     public class ConsumoBolsasCreateDTO
@@ -26,6 +27,7 @@ namespace CementoTrazabilidad.Shared.DTOs
         public string? LoteBolsa { get; set; }
         public string? TipoCemento { get; set; }
         public string? Observaciones { get; set; }
+        
     }
 
     public class ProveedorBolsaDTO

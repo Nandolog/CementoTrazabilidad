@@ -4,16 +4,19 @@ using CementoTrazabilidad.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace CementoTrazabilidad.Infrastructure.Migrations
+namespace CementoTrazabilidad.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260902170314_AddMotivoFallaYAccionCorrectiva")]
+    partial class AddMotivoFallaYAccionCorrectiva
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -243,9 +246,6 @@ namespace CementoTrazabilidad.Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
-                    b.Property<int?>("PersonalID")
-                        .HasColumnType("int");
-
                     b.Property<string>("TipoRegistro")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -269,8 +269,6 @@ namespace CementoTrazabilidad.Infrastructure.Migrations
 
                     b.HasIndex("NumeroLote")
                         .IsUnique();
-
-                    b.HasIndex("PersonalID");
 
                     b.HasIndex("TurnoID");
 
@@ -357,13 +355,10 @@ namespace CementoTrazabilidad.Infrastructure.Migrations
                         .HasColumnType("decimal(18,2)")
                         .HasColumnName("DensildadKGm3");
 
-                    b.Property<DateTime>("FechaCreacion")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Nombre")
+                    b.Property<string>("Descripcion")
                         .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)")
                         .HasColumnName("descripcion");
 
                     b.Property<decimal>("PesoBolsa")
@@ -865,10 +860,6 @@ namespace CementoTrazabilidad.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("CementoTrazabilidad.Core.Entidades.Personal", "Personal")
-                        .WithMany()
-                        .HasForeignKey("PersonalID");
-
                     b.HasOne("CementoTrazabilidad.Core.Entidades.TurnoProduccion", "Turno")
                         .WithMany()
                         .HasForeignKey("TurnoID")
@@ -876,8 +867,6 @@ namespace CementoTrazabilidad.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Material");
-
-                    b.Navigation("Personal");
 
                     b.Navigation("Turno");
                 });

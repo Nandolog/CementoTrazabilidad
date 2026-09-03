@@ -6,6 +6,7 @@ services:
       - ACCEPT_EULA=Y
       - SA_PASSWORD=CementoSeguro2024!
       - MSSQL_PID=Developer
+      - TZ=America/Asuncion
     ports:
       - "1433:1433"
     volumes:
@@ -31,6 +32,7 @@ services:
       - Jwt__Issuer=CementoTrazabilidad.API
       - Jwt__Audience=CementoTrazabilidad.Client
       - Jwt__ExpirationMinutes=480
+      - TZ=America/Asuncion
     ports:
       - "5198:8080"
     depends_on:
@@ -45,6 +47,8 @@ services:
       context: .
       dockerfile: CementoTrazabilidad.Blazor/Dockerfile
     container_name: cementotrazabilidad-blazor
+    environment:
+      - TZ=America/Asuncion
     ports:
       - "5165:80"
     depends_on:

@@ -382,10 +382,17 @@
                                         <td class="text-end">@metricas.ParadasOperativas.ToString("N0")</td>
                                     </tr>
                                     <tr>
-                                        <td><i class="fas fa-question-circle text-secondary me-2"></i>Circunstanciales</td>
+                                        <td><i class="fas fa-question-circle text-secondary me-2"></i>CIRCUNSTANCIALES</td>
                                         <td class="text-end">@FormatearMinutosHHMM(metricas.ParadasCircunstanciales)</td>
                                         <td class="text-end">@((metricas.ParadasCircunstanciales / 60).ToString("N2"))</td>
                                         <td class="text-end">@metricas.ParadasCircunstanciales.ToString("N0")</td>
+                                    </tr>
+                                    <!-- ✅ STOCK LLENO -->
+                                    <tr>
+                                        <td><i class="fas fa-boxes text-dark me-2"></i>STOCK LLENO</td>
+                                        <td class="text-end">@FormatearMinutosHHMM(metricas.TiempoStockLleno)</td>
+                                        <td class="text-end">@((metricas.TiempoStockLleno / 60).ToString("N2"))</td>
+                                        <td class="text-end">@metricas.TiempoStockLleno.ToString("N0")</td>
                                     </tr>
                                     <tr class="table-danger fw-bold">
                                         <td>TOTAL PARADAS</td>
@@ -428,8 +435,8 @@
                                 </div>
                             </div>
                             <div class="progress mb-2" style="height: 25px;">
-                                <div class="progress-bar @GetColorBarraCumplimiento(metricas.CumplimientoPalets)" 
-                                     role="progressbar" 
+                                <div class="progress-bar @GetColorBarraCumplimiento(metricas.CumplimientoPalets)"
+                                     role="progressbar"
                                      style="width: @Math.Min(metricas.CumplimientoPalets, 100)%">
                                     @metricas.CumplimientoPalets.ToString("N1")%
                                 </div>
@@ -442,6 +449,8 @@
                     </div>
                 </div>
             </div>
+           
+            
             <!-- ✅ FILA 4: CONSUMO DE BOLSAS (full width) -->
             <div class="row mb-4">
                 <div class="col-12">
@@ -591,8 +600,7 @@
                         </div>
                     </div>
                 </div>
-            </div> <!-- <-- Este cierre de div faltaba para balancear la fila de consumo de bolsas y gráfico de paradas -->
-
+            </div> 
             <!-- Cumplimiento de Objetivos -->
             <div class="col-lg-6 mb-3">
                 <div class="card shadow h-100">
@@ -1066,9 +1074,12 @@
             }
 
             await JSRuntime.InvokeVoidAsync("renderizarGraficoParadasDetalladas",
-                new[] { "Mecánicas", "Eléctricas", "Operativas", "Circunstanciales" },
-                new[] { metricas.ParadasMecanicas, metricas.ParadasElectricas, 
-                        metricas.ParadasOperativas, metricas.ParadasCircunstanciales }
+                new[] { "Mecánicas", "Eléctricas", "Operativas", "Circunstanciales", "STOCK LLENO" },
+                new[] { (double)metricas.ParadasMecanicas, 
+                    (double)metricas.ParadasElectricas,
+                   (double) metricas.ParadasOperativas,
+                    (double)metricas.ParadasCircunstanciales,
+                    (double)metricas.TiempoStockLleno}
             );
 
             await JSRuntime.InvokeVoidAsync("renderizarGraficoComparacion",

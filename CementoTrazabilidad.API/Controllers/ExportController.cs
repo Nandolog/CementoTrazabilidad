@@ -57,6 +57,8 @@ public class ExportController : ControllerBase
             // Obtener consumos de bolsas y mapear a DTO
             var consumosEntities = await _context.ConsumoBolsas
                 .Include(c => c.ProveedorBolsa)
+                .Include(c => c.ProduccionMaterial)
+                .ThenInclude(pm => pm.Material)
                 .Where(c => c.TurnoProduccionID == turnoId)
                 .ToListAsync();
 
@@ -67,7 +69,7 @@ public class ExportController : ControllerBase
                 ProveedorNombre = c.ProveedorBolsa?.Nombre,
                 TurnoProduccionID = c.TurnoProduccionID,
                 ProduccionMaterialID = c.ProduccionMaterialID,
-                MaterialDescripcion = null,
+                MaterialNombre = c.ProduccionMaterial?.Material?.Nombre ?? "Sin material",
                 CantidadBolsas = c.CantidadBolsas,
                 BolsasDefectuosas = c.BolsasDefectuosas,
                 FechaConsumo = c.FechaConsumo,
@@ -319,10 +321,27 @@ public class ExportController : ControllerBase
             .Where(p => p.TurnoProduccionID == turnoId)
             .ToListAsync();
 
+        // ============================================
+        // ✅ 1. CALCULAR PARADAS EXCLUYENDO STOCK LLENO (PARA FACTORES)
+        // ============================================
+        var paradasSinStockLleno = paradas
+            .Where(p => p.TipoParada == null ||
+                        !p.TipoParada.Contains("Stock Lleno", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        // ============================================
+        // ✅ 2. TOTAL DE PARADAS (INCLUYE STOCK LLENO - SOLO PARA MOSTRAR)
+        // ============================================
         var totalParadas = TimeSpan.FromMinutes(paradas.Sum(p =>
             ((p.FechaHoraFin ?? DateTime.Now) - p.FechaHoraInicio).TotalMinutes));
 
-        var horasProductivas = horasMarcha - totalParadas;
+        // ============================================
+        // ✅ 3. HORAS PRODUCTIVAS EXCLUYENDO STOCK LLENO (PARA FACTORES)
+        // ============================================
+        var minutosParadasFactores = paradasSinStockLleno.Sum(p =>
+            ((p.FechaHoraFin ?? DateTime.Now) - p.FechaHoraInicio).TotalMinutes);
+
+        var horasProductivas = horasMarcha - TimeSpan.FromMinutes(minutosParadasFactores);
 
         // Si las horas productivas son negativas, forzar a cero
         if (horasProductivas.TotalHours < 0)
@@ -331,6 +350,9 @@ public class ExportController : ControllerBase
             _logger.LogWarning($"⚠️ Turno {turnoId}: Horas productivas negativas, forzando a 0");
         }
 
+        // ============================================
+        // ✅ 4. PARADAS CLASIFICADAS (TODAS, INCLUYENDO STOCK LLENO PARA MOSTRAR)
+        // ============================================
         var paradasMecanicas = paradas
             .Where(p => p.TipoParada != null && p.TipoParada.Contains("Mecanica", StringComparison.OrdinalIgnoreCase))
             .Sum(p => ((p.FechaHoraFin ?? DateTime.Now) - p.FechaHoraInicio).TotalMinutes);
@@ -347,10 +369,16 @@ public class ExportController : ControllerBase
             .Where(p => p.TipoParada != null && p.TipoParada.Contains("Circunstancial", StringComparison.OrdinalIgnoreCase))
             .Sum(p => ((p.FechaHoraFin ?? DateTime.Now) - p.FechaHoraInicio).TotalMinutes);
 
-        // Obtener producción
+        var paradasStockLleno = paradas
+            .Where(p => p.TipoParada != null && p.TipoParada.Contains("Stock Lleno", StringComparison.OrdinalIgnoreCase))
+            .Sum(p => ((p.FechaHoraFin ?? DateTime.Now) - p.FechaHoraInicio).TotalMinutes);
+
+        // ============================================
+        // ✅ 5. OBTENER PRODUCCIÓN
+        // ============================================
         var bolsasRealizadas = await _context.LotesProduccion
-       .Where(l => l.TurnoID == turnoId)
-       .SumAsync(l => (int?)l.CantidadBolsas) ?? 0;
+            .Where(l => l.TurnoID == turnoId)
+            .SumAsync(l => (int?)l.CantidadBolsas) ?? 0;
 
         var bolsasRotas = await _context.LotesProduccion
             .Where(l => l.TurnoID == turnoId)
@@ -359,26 +387,29 @@ public class ExportController : ControllerBase
         var bolsasNetas = bolsasRealizadas - bolsasRotas;
         var toneladasProducidas = bolsasNetas * 0.05m; // 50kg = 0.05 toneladas
 
+        // ============================================
+        // ✅ 6. CALCULAR Tn/h Y FACTORES EXCLUYENDO STOCK LLENO
+        // ============================================
         var tnPorHora = horasProductivas.TotalHours > 0
             ? toneladasProducidas / (decimal)horasProductivas.TotalHours
             : 0m;
 
-        var factorCorreccion = horasMarcha.TotalHours > 0
+        var factorConfiabilidad = horasMarcha.TotalHours > 0
             ? (decimal)(horasProductivas.TotalHours / horasMarcha.TotalHours * 100)
             : 0m;
 
         var factorProduccion = tnPorHora / 80m * 100m; // Objetivo 80 Tn/h
 
         // ============================================
-        // ✅ CORRECCIÓN 2: ANDENES - Solo desde EventosCarga
+        // ✅ 7. ANDENES - Solo desde EventosCarga
         // ============================================
         int cantidadAndenes = 0;
 
         // Buscar eventos de la zona "Anden" con TipoEvento "Inicio"
         var eventosAndenInicio = await _context.EventosCarga
             .Where(e => e.TurnoProduccionID == turnoId
-                        && e.ZonaCarga == "Anden"  // ← CORRECCIÓN: ZonaCarga, no TipoEvento
-                        && e.TipoEvento == "Inicio")  // Contamos inicios = andenes únicos
+                        && e.ZonaCarga == "Anden"
+                        && e.TipoEvento == "Inicio")
             .ToListAsync();
 
         if (eventosAndenInicio.Any())
@@ -402,11 +433,11 @@ public class ExportController : ControllerBase
             }
             else
             {
-                // Última alternativa: Contar eventos únicos de la zona Anden (cualquier tipo)
+                // Última alternativa: Contar eventos únicos de la zona Anden
                 var eventosAndenUnicos = await _context.EventosCarga
                     .Where(e => e.TurnoProduccionID == turnoId
                                 && e.ZonaCarga == "Anden")
-                    .Select(e => e.ZonaCarga)  // O podrías usar otro campo si existe
+                    .Select(e => e.ZonaCarga)
                     .Distinct()
                     .CountAsync();
 
@@ -424,7 +455,7 @@ public class ExportController : ControllerBase
         }
 
         // ============================================
-        // ✅ PALETS - SIN CAMBIOS (funciona correctamente)
+        // ✅ 8. PALETS
         // ============================================
         var eventosPalets = await _context.EventosCarga
             .Where(e => e.TurnoProduccionID == turnoId && e.TipoEvento == "PALET")
@@ -432,23 +463,13 @@ public class ExportController : ControllerBase
 
         _logger.LogInformation($"✅ Turno {turnoId}: Palets registrados = {eventosPalets}");
 
-        // ✅ Calcular palets basado en 40 bolsas por palet
         var paletsCalculados = bolsasNetas / 40;
-
-        // Si hay eventos registrados, usar ese valor; sino usar el calculado
         var paletsFinales = eventosPalets > 0 ? eventosPalets : paletsCalculados;
 
         _logger.LogInformation($"📊 Turno {turnoId}: Palets finales = {paletsFinales} (eventos: {eventosPalets}, calculados: {paletsCalculados})");
 
         // ============================================
-        // ✅ FACTOR DE CONFIABILIDAD
-        // ============================================
-        var factorConfiabilidad = horasMarcha.TotalHours > 0
-            ? (decimal)(horasProductivas.TotalHours / horasMarcha.TotalHours * 100)
-            : 0m;
-
-        // ============================================
-        // ✅ RETORNAR MÉTRICAS COMPLETAS
+        // ✅ 9. RETORNAR MÉTRICAS COMPLETAS
         // ============================================
         return new MetricasTurnoDto
         {
@@ -456,31 +477,31 @@ public class ExportController : ControllerBase
             TurnoNumero = turno.TurnoNumero,
             Fecha = turno.Fecha,
             HorasMarcha = horasMarcha,
-            HorasProductivas = horasProductivas,
+            HorasProductivas = horasProductivas,          // ✅ Sin Stock Lleno
             HorasProductivasObjetivo = horasTeoricasTurno,
-            TotalParadas = totalParadas,
+            TotalParadas = totalParadas,                  // ✅ Con Stock Lleno (para mostrar)
             ParadasMecanicas = paradasMecanicas,
             ParadasElectricas = paradasElectricas,
             ParadasOperativas = paradasOperativas,
             ParadasCircunstanciales = paradasCircunstanciales,
+            TiempoStockLleno = paradasStockLleno,         // ✅ Solo para mostrar
             BolsasRealizadas = bolsasRealizadas,
             BolsasRotas = bolsasRotas,
             BolsasNetas = bolsasNetas,
             ToneladasProducidas = toneladasProducidas,
-            ToneladasPorHora = tnPorHora,
+            ToneladasPorHora = tnPorHora,                 // ✅ Sin Stock Lleno
             ToneladasPorHoraObjetivo = 80m,
-            FactorConfiabilidad = Math.Round(factorConfiabilidad, 2),
-            FactorProduccion = Math.Round(factorProduccion, 2),
-            CumplimientoHoras = Math.Round((decimal)(horasProductivas.TotalHours / horasTeoricasTurno.TotalHours * 100), 2),
-            CumplimientoProduccion = Math.Round(factorProduccion, 2),
-            CantidadAndenes = cantidadAndenes,  // ✅ CORREGIDO - Solo desde EventosCarga
-            PaletsRealizados = paletsFinales,   // ✅ SIN CAMBIOS
-            PaletsObjetivoTurno = 213, // 640/3 ≈ 213
+            FactorConfiabilidad = Math.Round(factorConfiabilidad, 2),  // ✅ Sin Stock Lleno
+            FactorProduccion = Math.Round(factorProduccion, 2),        // ✅ Sin Stock Lleno
+            CumplimientoHoras = Math.Round((decimal)(horasProductivas.TotalHours / horasTeoricasTurno.TotalHours * 100), 2), // ✅ Sin Stock Lleno
+            CumplimientoProduccion = Math.Round(factorProduccion, 2),  // ✅ Sin Stock Lleno
+            CantidadAndenes = cantidadAndenes,
+            PaletsRealizados = paletsFinales,
+            PaletsObjetivoTurno = 213,
             PaletsObjetivoDiario = 640,
             CumplimientoPalets = paletsFinales > 0 ? Math.Round((decimal)paletsFinales / 213m * 100m, 2) : 0m
         };
     }
-
     private async Task<List<ParadasDetalladasDto>> ObtenerParadasDetalladas(int turnoId)
     {
         var paradas = await _context.Paradas
@@ -494,12 +515,22 @@ public class ExportController : ControllerBase
                 TipoParada = g.Key,
                 CantidadParadas = g.Count(),
                 TotalMinutos = g.Sum(p => ((p.FechaHoraFin ?? DateTime.Now) - p.FechaHoraInicio).TotalMinutes),
-                TotalHoras = g.Sum(p => ((p.FechaHoraFin ?? DateTime.Now) - p.FechaHoraInicio).TotalHours)
+                TotalHoras = g.Sum(p => ((p.FechaHoraFin ?? DateTime.Now) - p.FechaHoraInicio).TotalHours),
+                Paradas = g.Select(p => new ParadaIndividualDto
+                {
+                    ParadaID = p.ParadaID,
+                    Inicio = p.FechaHoraInicio,
+                    Fin = p.FechaHoraFin,
+                    Minutos = ((p.FechaHoraFin ?? DateTime.Now) - p.FechaHoraInicio).TotalMinutes,
+                    Descripcion = p.Descripcion ?? "Sin descripción",
+                    MotivoFalla = p.MotivoFalla ?? "No especificado",      // ✅ NUEVO
+                    AccionCorrectiva = p.AccionCorrectiva ?? "No especificada", // ✅ NUEVO
+                    Responsable = p.Responsable ?? "No asignado"           // ✅ NUEVO
+                }).ToList()
             })
             .OrderByDescending(p => p.TotalMinutos)
             .ToList();
     }
-
     private TurnoDto MapearTurnoDto(Core.Entidades.TurnoProduccion turno)
     {
         return new TurnoDto

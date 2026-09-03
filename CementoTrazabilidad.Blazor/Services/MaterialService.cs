@@ -35,13 +35,19 @@ public class MaterialService : IMaterialService
             {
                 url += $"?activos={soloActivos.Value.ToString().ToLower()}";
             }
-            
-            return await _httpClient.GetFromJsonAsync<List<MaterialDto>>(url)
-                   ?? new List<MaterialDto>();
+
+            Console.WriteLine($"🔍 Llamando a: {url}");
+
+            // ✅ CORREGIDO: Deserializar como ApiResponse<List<MaterialDto>>
+            var response = await _httpClient.GetFromJsonAsync<ApiResponse<List<MaterialDto>>>(url);
+
+            Console.WriteLine($"📥 Respuesta: Success={response?.Success}, Count={response?.Data?.Count ?? 0}");
+
+            return response?.Data ?? new List<MaterialDto>();
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error en GetMaterialesAsync: {ex.Message}");
+            Console.WriteLine($"❌ Error en GetMaterialesAsync: {ex.Message}");
             return new List<MaterialDto>();
         }
     }
@@ -51,11 +57,13 @@ public class MaterialService : IMaterialService
         await ConfigureHttpClient();
         try
         {
-            return await _httpClient.GetFromJsonAsync<MaterialDto>($"api/materiales/{id}");
+            // ✅ CORREGIDO: Deserializar como ApiResponse<MaterialDto>
+            var response = await _httpClient.GetFromJsonAsync<ApiResponse<MaterialDto>>($"api/materiales/{id}");
+            return response?.Data;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error en GetMaterialAsync: {ex.Message}");
+            Console.WriteLine($"❌ Error en GetMaterialAsync: {ex.Message}");
             return null;
         }
     }
@@ -66,15 +74,15 @@ public class MaterialService : IMaterialService
         try
         {
             Console.WriteLine($"📤 Enviando material: Codigo={request.Codigo}, Descripcion={request.Descripcion}, PesoPorBolsa={request.PesoPorBolsa}, DensidadKGm3={request.DensidadKGm3}");
-            
+
             var response = await _httpClient.PostAsJsonAsync("api/materiales", request);
-            
+
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
                 Console.WriteLine($"❌ Error {response.StatusCode}: {errorContent}");
             }
-            
+
             return response.IsSuccessStatusCode;
         }
         catch (Exception ex)
@@ -91,15 +99,15 @@ public class MaterialService : IMaterialService
         try
         {
             Console.WriteLine($"📤 Actualizando material {id}: Descripcion={request.Descripcion}, PesoPorBolsa={request.PesoPorBolsa}, DensidadKGm3={request.DensidadKGm3}, Activo={request.Activo}");
-            
+
             var response = await _httpClient.PutAsJsonAsync($"api/materiales/{id}", request);
-            
+
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
                 Console.WriteLine($"❌ Error {response.StatusCode}: {errorContent}");
             }
-            
+
             return response.IsSuccessStatusCode;
         }
         catch (Exception ex)
@@ -115,13 +123,13 @@ public class MaterialService : IMaterialService
         try
         {
             var response = await _httpClient.DeleteAsync($"api/materiales/{id}");
-            
+
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
                 Console.WriteLine($"❌ Error al eliminar material {id}: {errorContent}");
             }
-            
+
             return response.IsSuccessStatusCode;
         }
         catch (Exception ex)
@@ -131,3 +139,5 @@ public class MaterialService : IMaterialService
         }
     }
 }
+
+

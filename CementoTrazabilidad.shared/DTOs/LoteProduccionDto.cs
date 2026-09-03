@@ -31,6 +31,8 @@ namespace CementoTrazabilidad.Shared.DTOs
         public decimal HorasMarcha { get; set; }
 
         public TurnoProduccionDto? Turno { get; set; }
+        public int? PersonalID { get; set; }
+        public string? PersonalNombre { get; set; }
     }
 }
 

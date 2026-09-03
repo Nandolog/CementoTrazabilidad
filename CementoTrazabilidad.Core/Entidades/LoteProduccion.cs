@@ -41,8 +41,11 @@ public class LoteProduccion
 
     [Range(0, int.MaxValue)]
     public int BolsasPaletizado { get; set; }
+    public int? PersonalID { get; set; }
+
 
     // Navigation properties
     public virtual TurnoProduccion? Turno { get; set; }
     public virtual Material? Material { get; set; }
+    public virtual Personal Personal { get; set; }
 }

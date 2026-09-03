@@ -11,21 +11,31 @@ namespace CementoTrazabilidad.Core.Entidades
     {
         public int ParadaID { get; set; }
         public int TurnoProduccionID { get; set; }
-        
+
         // ✅ Mapear a columna "Tipo" (varchar(30))
         [Column("Tipo")]
         public string TipoParada { get; set; } = string.Empty;
-        
+
         // ✅ Mapear a columna "Decripcion" (typo en BD) (varchar(200))
         [Column("Decripcion")]
         public string Descripcion { get; set; } = string.Empty;
-        
+
         public DateTime FechaHoraInicio { get; set; }
         public DateTime? FechaHoraFin { get; set; }
-        
+
         // ✅ COLUMNA CALCULADA - DatabaseGenerated para que EF Core NO intente escribirla
         [DatabaseGenerated(DatabaseGeneratedOption.Computed)]
         public int? DuracionMinutos { get; set; }
+
+        // ✅ NUEVOS CAMPOS EN BASE DE DATOS (Quitar NotMapped)
+        [Column("MotivoFalla")]
+        public string? MotivoFalla { get; set; }
+
+        [Column("AccionCorrectiva")]
+        public string? AccionCorrectiva { get; set; }
+
+        [Column("Responsable")]
+        public string? Responsable { get; set; }
 
         // Navigation properties
         public virtual TurnoProduccion Turno { get; set; } = null!;
@@ -48,20 +58,14 @@ namespace CementoTrazabilidad.Core.Entidades
         };
 
         [NotMapped]
-        private int DuracionMinutosCalculado => FechaHoraFin.HasValue 
-            ? (int)(FechaHoraFin.Value - FechaHoraInicio).TotalMinutes 
+        private int DuracionMinutosCalculado => FechaHoraFin.HasValue
+            ? (int)(FechaHoraFin.Value - FechaHoraInicio).TotalMinutes
             : 0;
 
-        // ✅ PROPIEDADES QUE NO EXISTEN EN BD - Marcar como NotMapped
-        [NotMapped]
-        public string? Motivo { get; set; }
-        
+        // ✅ PROPIEDADES QUE SIGUEN SIN EXISTIR EN BD
         [NotMapped]
         public int? PersonalResponsableID { get; set; }
-        
-        [NotMapped]
-        public string? AccionesCorrectivas { get; set; }
-        
+
         [NotMapped]
         public virtual Personal? PersonalResponsable { get; set; }
     }

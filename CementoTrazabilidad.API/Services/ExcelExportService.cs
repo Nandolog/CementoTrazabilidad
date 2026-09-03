@@ -191,61 +191,29 @@ public class ExcelExportService : IExcelExportService
             row++;
         }
 
-        // ============ SECCIÓN: PRODUCCIÓN ============
-        row++;
-        ws.Cell(row, 1).Value = "PRODUCCIÓN";
-        FormatearEncabezadoSeccion(ws.Range(row, 1, row, 3), XLColor.DarkOrange);
-        
-        row++;
-        ws.Cell(row, 1).Value = "Bolsas Realizadas:";
-        ws.Cell(row, 2).Value = metricas.BolsasRealizadas;
-        row++;
-        ws.Cell(row, 1).Value = "Bolsas Rotas:";
-        ws.Cell(row, 2).Value = metricas.BolsasRotas;
-        row++;
-        ws.Cell(row, 1).Value = "Bolsas Netas:";
-        ws.Cell(row, 2).Value = metricas.BolsasNetas;
-        ws.Cell(row, 2).Style.Font.SetBold();
-        row++;
-        ws.Cell(row, 1).Value = "Toneladas Producidas:";
-        ws.Cell(row, 2).Value = metricas.ToneladasProducidas;
-        ws.Cell(row, 2).Style.NumberFormat.Format = "0.00";
-        row++;
-        ws.Cell(row, 1).Value = "Palets Realizados:";
-        ws.Cell(row, 2).Value = metricas.PaletsRealizados;
-        row++;
-        ws.Cell(row, 1).Value = "Andenes Utilizados:";
-        ws.Cell(row, 2).Value = metricas.CantidadAndenes;
-        
-        // ✅ AGREGAR: Nota explicativa si es valor estimado
-        row++;
-        ws.Cell(row, 1).Value = "Nota:";
-        ws.Cell(row, 2).Value = "Los andenes varían según demanda del cliente";
-        ws.Cell(row, 2).Style.Font.SetItalic().Font.SetFontSize(9);
-        ws.Cell(row, 2).Style.Font.SetFontColor(XLColor.Gray);
-
-        // ============ SECCIÓN: PARADAS ============
+        // ============ SECCIÓN: PARADAS CLASIFICADAS ============
         row += 2;
         ws.Cell(row, 1).Value = "PARADAS CLASIFICADAS";
         FormatearEncabezadoSeccion(ws.Range(row, 1, row, 4), XLColor.DarkRed);
-        
+
         row++;
         ws.Cell(row, 1).Value = "Tipo de Parada";
         ws.Cell(row, 2).Value = "Tiempo (HH:MM)";
         ws.Cell(row, 3).Value = "Horas";
         ws.Cell(row, 4).Value = "Minutos";
         FormatearEncabezadoTabla(ws.Range(row, 1, row, 4));
-        
-        row++;
-        var dataParadas = new[]
-        {
-            new { Tipo = "MECÁNICAS", Minutos = metricas.ParadasMecanicas },
-            new { Tipo = "ELÉCTRICAS", Minutos = metricas.ParadasElectricas },
-            new { Tipo = "OPERATIVAS", Minutos = metricas.ParadasOperativas },
-            new { Tipo = "CIRCUNSTANCIALES", Minutos = metricas.ParadasCircunstanciales }
-        };
 
-        foreach (var parada in dataParadas)
+        row++;
+        var dataParadasClasificadas = new[]
+        {
+    new { Tipo = "MECÁNICAS", Minutos = metricas.ParadasMecanicas },
+    new { Tipo = "ELÉCTRICAS", Minutos = metricas.ParadasElectricas },
+    new { Tipo = "OPERATIVAS", Minutos = metricas.ParadasOperativas },
+    new { Tipo = "CIRCUNSTANCIALES", Minutos = metricas.ParadasCircunstanciales },
+      new { Tipo = "STOCK LLENO", Minutos = metricas.TiempoStockLleno }
+};
+
+        foreach (var parada in dataParadasClasificadas)
         {
             ws.Cell(row, 1).Value = parada.Tipo;
             ws.Cell(row, 2).Value = FormatearMinutosHHMM(parada.Minutos);
@@ -263,6 +231,114 @@ public class ExcelExportService : IExcelExportService
         ws.Cell(row, 3).Style.NumberFormat.Format = "0.00";
         ws.Cell(row, 4).Value = metricas.TotalParadas.TotalMinutes;
         ws.Range(row, 1, row, 4).Style.Fill.SetBackgroundColor(XLColor.LightGray).Font.SetBold();
+
+        // ============ SECCIÓN: PARADAS CLASIFICADAS ============
+        row += 2;
+        ws.Cell(row, 1).Value = "PARADAS CLASIFICADAS";
+        ws.Range(row, 1, row, 4).Merge();
+        ws.Cell(row, 1).Style.Font.Bold = true;
+        ws.Cell(row, 1).Style.Font.FontColor = XLColor.White;
+        ws.Range(row, 1, row, 4).Style.Fill.BackgroundColor = XLColor.DarkRed;
+
+        row++;
+        ws.Cell(row, 1).Value = "Tipo de Parada";
+        ws.Cell(row, 2).Value = "Tiempo (HH:MM)";
+        ws.Cell(row, 3).Value = "Horas";
+        ws.Cell(row, 4).Value = "Minutos";
+        ws.Range(row, 1, row, 4).Style.Font.Bold = true;
+        ws.Range(row, 1, row, 4).Style.Fill.BackgroundColor = XLColor.LightGray;
+
+        row++;
+        var dataParadasClasificadas2 = new[]
+        {
+    new { Tipo = "MECÁNICAS", Minutos = metricas.ParadasMecanicas },
+    new { Tipo = "ELÉCTRICAS", Minutos = metricas.ParadasElectricas },
+    new { Tipo = "OPERATIVAS", Minutos = metricas.ParadasOperativas },
+    new { Tipo = "CIRCUNSTANCIALES", Minutos = metricas.ParadasCircunstanciales }
+};
+
+        foreach (var parada in dataParadasClasificadas2)
+        {
+            ws.Cell(row, 1).Value = parada.Tipo;
+            ws.Cell(row, 2).Value = FormatearMinutosHHMM(parada.Minutos);
+            ws.Cell(row, 3).Value = parada.Minutos / 60.0;
+            ws.Cell(row, 3).Style.NumberFormat.Format = "0.00";
+            ws.Cell(row, 4).Value = parada.Minutos;
+            ws.Cell(row, 4).Style.NumberFormat.Format = "0";
+            row++;
+        }
+
+        // TOTAL PARADAS
+        ws.Cell(row, 1).Value = "TOTAL PARADAS";
+        ws.Cell(row, 2).Value = FormatearHoras(metricas.TotalParadas);
+        ws.Cell(row, 3).Value = metricas.TotalParadas.TotalHours;
+        ws.Cell(row, 3).Style.NumberFormat.Format = "0.00";
+        ws.Cell(row, 4).Value = metricas.TotalParadas.TotalMinutes;
+        ws.Range(row, 1, row, 4).Style.Font.Bold = true;
+        ws.Range(row, 1, row, 4).Style.Fill.BackgroundColor = XLColor.LightGray;
+
+        // ============================================
+        // ✅ NUEVA SECCIÓN: DETALLE DE PARADAS - MOTIVO Y ACCIÓN CORRECTIVA
+        // ============================================
+        row += 2;
+        ws.Cell(row, 1).Value = "DETALLE DE PARADAS - MOTIVO Y ACCIÓN CORRECTIVA";
+        ws.Range(row, 1, row, 8).Merge();
+        ws.Cell(row, 1).Style.Font.Bold = true;
+        ws.Cell(row, 1).Style.Font.FontColor = XLColor.White;
+        ws.Range(row, 1, row, 8).Style.Fill.BackgroundColor = XLColor.DarkBlue;
+
+        row++;
+        ws.Cell(row, 1).Value = "Tipo";
+        ws.Cell(row, 2).Value = "Descripción";
+        ws.Cell(row, 3).Value = "Inicio";
+        ws.Cell(row, 4).Value = "Fin";
+        ws.Cell(row, 5).Value = "Duración (min)";
+        ws.Cell(row, 6).Value = "Motivo de Falla";
+        ws.Cell(row, 7).Value = "Acción Correctiva";
+        ws.Cell(row, 8).Value = "Responsable";
+        ws.Range(row, 1, row, 8).Style.Font.Bold = true;
+        ws.Range(row, 1, row, 8).Style.Fill.BackgroundColor = XLColor.LightGray;
+
+        row++;
+        // Verificar si hay paradas con detalles
+        bool hayDetalles = paradas != null && paradas.Any(p => p.Paradas != null && p.Paradas.Any());
+
+        if (hayDetalles)
+        {
+            foreach (var parada in paradas)
+            {
+                foreach (var detalle in parada.Paradas)
+                {
+                    ws.Cell(row, 1).Value = parada.TipoParada;
+                    ws.Cell(row, 2).Value = detalle.Descripcion ?? "Sin descripción";
+                    ws.Cell(row, 3).Value = detalle.Inicio.ToString("dd/MM/yyyy HH:mm");
+                    ws.Cell(row, 4).Value = detalle.Fin?.ToString("dd/MM/yyyy HH:mm") ?? "En curso";
+                    ws.Cell(row, 5).Value = Math.Round(detalle.Minutos, 0);
+                    ws.Cell(row, 5).Style.NumberFormat.Format = "0";
+                    ws.Cell(row, 6).Value = detalle.MotivoFalla ?? "No especificado";
+                    ws.Cell(row, 7).Value = detalle.AccionCorrectiva ?? "No especificada";
+                    ws.Cell(row, 8).Value = detalle.Responsable ?? "No asignado";
+                    row++;
+                }
+            }
+        }
+        else
+        {
+            ws.Cell(row, 1).Value = "No hay paradas registradas con detalles";
+            ws.Range(row, 1, row, 8).Merge();
+            ws.Cell(row, 1).Style.Font.FontColor = XLColor.Gray;
+            row++;
+        }
+
+        // Ajustar ancho de columnas
+        ws.Column(1).Width = 20;   // Tipo
+        ws.Column(2).Width = 30;   // Descripción
+        ws.Column(3).Width = 18;   // Inicio
+        ws.Column(4).Width = 18;   // Fin
+        ws.Column(5).Width = 15;   // Duración
+        ws.Column(6).Width = 35;   // Motivo de Falla
+        ws.Column(7).Width = 35;   // Acción Correctiva
+        ws.Column(8).Width = 20;   // Responsable
 
         // ✅ SECCIÓN: INFORMACIÓN ADICIONAL (después de PARADAS)
         // row += 2;

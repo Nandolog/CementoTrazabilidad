@@ -1,6 +1,7 @@
+﻿using CementoTrazabilidad.API.Authorization;
+using CementoTrazabilidad.Core.Entidades;
 using CementoTrazabilidad.Infrastructure.Data;
 using CementoTrazabilidad.Shared.DTOs;
-using CementoTrazabilidad.API.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -34,7 +35,9 @@ namespace CementoTrazabilidad.API.Controllers
                     ProveedorNombre = c.ProveedorBolsa.Nombre,
                     TurnoProduccionID = c.TurnoProduccionID,
                     ProduccionMaterialID = c.ProduccionMaterialID,
-                    MaterialDescripcion = c.ProduccionMaterial != null ? c.ProduccionMaterial.Material.Descripcion : null,
+                    MaterialNombre = c.ProduccionMaterial != null && c.ProduccionMaterial.Material != null
+                ? c.ProduccionMaterial.Material.Nombre
+                : "Sin material",
                     CantidadBolsas = c.CantidadBolsas,
                     BolsasDefectuosas = c.BolsasDefectuosas,
                     FechaConsumo = c.FechaConsumo,
@@ -64,7 +67,9 @@ namespace CementoTrazabilidad.API.Controllers
                     ProveedorNombre = c.ProveedorBolsa.Nombre,
                     TurnoProduccionID = c.TurnoProduccionID,
                     ProduccionMaterialID = c.ProduccionMaterialID,
-                    MaterialDescripcion = c.ProduccionMaterial != null ? c.ProduccionMaterial.Material.Descripcion : null,
+                    MaterialNombre = c.ProduccionMaterial != null && c.ProduccionMaterial.Material != null
+                ? c.ProduccionMaterial.Material.Nombre
+                : "Sin material",
                     CantidadBolsas = c.CantidadBolsas,
                     BolsasDefectuosas = c.BolsasDefectuosas,
                     FechaConsumo = c.FechaConsumo,
@@ -82,11 +87,67 @@ namespace CementoTrazabilidad.API.Controllers
         [RequieresTurnoActivo]
         public async Task<ActionResult<ConsumoBolsasDTO>> CreateConsumoBolsas(ConsumoBolsasCreateDTO dto)
         {
+            // ✅ Si no se proporciona ProduccionMaterialID, buscar o crear uno
+            int? produccionMaterialId = dto.ProduccionMaterialID;
+
+            if (!produccionMaterialId.HasValue)
+            {
+                // ✅ SELECCIONAR MATERIAL SEGÚN TIPOCEMENTO
+                Material? material = null;
+
+                if (!string.IsNullOrEmpty(dto.TipoCemento))
+                {
+                    // Buscar material por el TipoCemento
+                    material = dto.TipoCemento switch
+                    {
+                        "C32" => await _context.Materiales
+                            .FirstOrDefaultAsync(m => m.Codigo.Contains("C32") || m.Nombre.Contains("C32")),
+                        "F40" => await _context.Materiales
+                            .FirstOrDefaultAsync(m => m.Codigo.Contains("F40") || m.Nombre.Contains("F40")),
+                        _ => await _context.Materiales.FirstOrDefaultAsync(m => m.Activo)
+                    };
+                }
+
+                // Si no se encontró material por TipoCemento, usar el primer material activo
+                if (material == null)
+                {
+                    material = await _context.Materiales.FirstOrDefaultAsync(m => m.Activo);
+                }
+
+                if (material == null)
+                    return BadRequest(new { success = false, message = "No hay materiales disponibles" });
+
+                // ✅ Buscar producción existente con el material correcto
+                var produccion = await _context.ProduccionMaterial
+                    .FirstOrDefaultAsync(p => p.TurnoProduccionID == dto.TurnoProduccionID
+                                               && p.MaterialID == material.MaterialID);
+
+                if (produccion != null)
+                {
+                    produccionMaterialId = produccion.ProduccionMaterialID;
+                }
+                else
+                {
+                    // ✅ Crear nueva producción con el material correcto
+                    var nuevaProduccion = new Core.Entidades.ProduccionMaterial
+                    {
+                        TurnoProduccionID = dto.TurnoProduccionID,
+                        MaterialID = material.MaterialID,
+                        BolsasElaboradas = dto.CantidadBolsas,
+                        BolsasRotas = dto.BolsasDefectuosas,
+                        HorasMarcha = 0
+                    };
+                    _context.ProduccionMaterial.Add(nuevaProduccion);
+                    await _context.SaveChangesAsync();
+                    produccionMaterialId = nuevaProduccion.ProduccionMaterialID;
+                }
+            }
+
             var consumo = new Core.Entidades.ConsumoBolsas
             {
                 ProveedorBolsaID = dto.ProveedorBolsaID,
                 TurnoProduccionID = dto.TurnoProduccionID,
-                ProduccionMaterialID = dto.ProduccionMaterialID,
+                ProduccionMaterialID = produccionMaterialId,
                 CantidadBolsas = dto.CantidadBolsas,
                 BolsasDefectuosas = dto.BolsasDefectuosas,
                 LoteBolsa = dto.LoteBolsa,
@@ -98,6 +159,7 @@ namespace CementoTrazabilidad.API.Controllers
             _context.ConsumoBolsas.Add(consumo);
             await _context.SaveChangesAsync();
 
+            // Obtener el resultado con el material
             var result = await _context.ConsumoBolsas
                 .Where(c => c.ConsumoBolsasID == consumo.ConsumoBolsasID)
                 .Include(c => c.ProveedorBolsa)
@@ -110,7 +172,9 @@ namespace CementoTrazabilidad.API.Controllers
                     ProveedorNombre = c.ProveedorBolsa.Nombre,
                     TurnoProduccionID = c.TurnoProduccionID,
                     ProduccionMaterialID = c.ProduccionMaterialID,
-                    MaterialDescripcion = c.ProduccionMaterial != null ? c.ProduccionMaterial.Material.Descripcion : null,
+                    MaterialNombre = c.ProduccionMaterial != null && c.ProduccionMaterial.Material != null
+                        ? c.ProduccionMaterial.Material.Nombre
+                        : "Sin material",
                     CantidadBolsas = c.CantidadBolsas,
                     BolsasDefectuosas = c.BolsasDefectuosas,
                     FechaConsumo = c.FechaConsumo,

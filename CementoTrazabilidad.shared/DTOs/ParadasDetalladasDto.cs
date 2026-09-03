@@ -1,4 +1,4 @@
-namespace CementoTrazabilidad.Shared.DTOs;
+﻿namespace CementoTrazabilidad.Shared.DTOs;
 
 public class ParadasDetalladasDto
 {
@@ -15,5 +15,8 @@ public class ParadaIndividualDto
     public DateTime Inicio { get; set; }
     public DateTime? Fin { get; set; }
     public double Minutos { get; set; }
-    public string Motivo { get; set; } = string.Empty;
+    public string Descripcion { get; set; } = string.Empty;
+    public string MotivoFalla { get; set; } = string.Empty;      // ✅ NUEVO
+    public string AccionCorrectiva { get; set; } = string.Empty; // ✅ NUEVO
+    public string Responsable { get; set; } = string.Empty;      // ✅ NUEVO
 }
