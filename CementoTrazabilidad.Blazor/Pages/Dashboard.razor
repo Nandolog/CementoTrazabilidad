@@ -614,8 +614,19 @@
         {
             var todosTurnos = await TurnoService.GetTurnosAsync();
             var hoy = DateOnly.FromDateTime(DateTime.Today);
-            turnosHoy = todosTurnos.Where(t => t.Fecha == hoy).OrderBy(t => t.TurnoNumero).ToList();
-            turnoActual = turnosHoy.FirstOrDefault(t => t.Estado == "En Proceso");
+            var dayStart = hoy.ToDateTime(new TimeOnly(0, 0));
+            var dayEnd = dayStart.AddDays(1).AddTicks(-1);
+
+            // Incluir turnos que intersecten el día (maneja turnos que cruzan medianoche)
+            turnosHoy = todosTurnos
+                .Where(t => TurnoIntersectsDate(t, dayStart, dayEnd))
+                .OrderBy(t => t.TurnoNumero)
+                .ToList();
+
+            // Si existe un turno marcado "En Proceso" preferirlo (independiente de la fecha)
+            turnoActual = todosTurnos.FirstOrDefault(t => t.Estado == "En Proceso")
+             ?? turnosHoy.FirstOrDefault(t => t.Estado == "En Proceso");
+
             await CargarTurnosFinalizados();
 
             if (turnoActual == null)
@@ -929,6 +940,21 @@
         public bool Success { get; set; }
         public T? Data { get; set; }
         public string? Message { get; set; }
+    }
+
+    private bool TurnoIntersectsDate(TurnoDto turno, DateTime dayStart, DateTime dayEnd)
+    {
+        var inicio = turno.FechaHoraInicio;
+        var fin = turno.FechaHoraFin ?? inicio;
+
+        // Si fin es anterior a inicio, asumir que terminó al día siguiente (cruce de medianoche)
+        if (fin < inicio)
+        {
+            fin = fin.AddDays(1);
+        }
+
+        // Intersección entre [inicio, fin] y [dayStart, dayEnd]
+        return inicio <= dayEnd && fin >= dayStart;
     }
 }
 
