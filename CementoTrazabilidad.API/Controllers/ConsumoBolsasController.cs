@@ -153,7 +153,7 @@ namespace CementoTrazabilidad.API.Controllers
                 LoteBolsa = dto.LoteBolsa,
                 TipoCemento = dto.TipoCemento,
                 Observaciones = dto.Observaciones,
-                FechaConsumo = DateTime.UtcNow
+                FechaConsumo = DateTime.Now
             };
 
             _context.ConsumoBolsas.Add(consumo);

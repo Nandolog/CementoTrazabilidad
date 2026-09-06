@@ -193,6 +193,20 @@ public class MetricasController : ControllerBase
                 .AverageAsync() ?? 50m;
 
             var toneladasProducidas = (bolsasNetas * pesoPromedioBolsa) / 1000m;
+            // ✅ AGREGAR: Calcular bolsas en andén
+            var bolsasEnAnden = await _context.LotesProduccion
+                .Where(l => l.TurnoID == turnoId && l.ZonaCarga == "Anden")
+                .SumAsync(l => (int?)l.CantidadBolsas) ?? 0;
+
+            // Si no hay lotes con ZonaCarga = "Anden", usar BolsasAnden
+            if (bolsasEnAnden == 0)
+            {
+                bolsasEnAnden = await _context.LotesProduccion
+                    .Where(l => l.TurnoID == turnoId)
+                    .SumAsync(l => (int?)l.BolsasAnden) ?? 0;
+            }
+
+            _logger.LogInformation($"📊 Turno {turnoId}: Bolsas en andén = {bolsasEnAnden}");
 
             // 10. Tn/h
             var horasProductivasDecimal = (decimal)horasProductivas.TotalHours;
@@ -222,13 +236,53 @@ public class MetricasController : ControllerBase
             var paletsRealizados = (int)(bolsasNetas / BOLSAS_POR_PALET);
 
             // 16. Cantidad de andenes desde eventos
-            var cantidadAndenes = eventosCarga
-                .Where(e => !string.IsNullOrEmpty(e.ZonaCarga)
-                            && e.ZonaCarga.IndexOf("Anden", StringComparison.OrdinalIgnoreCase) >= 0
-                            && string.Equals(e.TipoEvento, "Inicio", StringComparison.OrdinalIgnoreCase))
-                .Select(e => e.ZonaCarga.ToLowerInvariant())
-                .Distinct()
-                .Count();
+            int cantidadAndenes = 0;
+
+            // Contar TODOS los inicios de Anden (cada inicio = un andén)
+            var eventosAndenInicio = await _context.EventosCarga
+                .Where(e => e.TurnoProduccionID == turnoId
+                            && e.ZonaCarga == "Anden"
+                            && e.TipoEvento == "Inicio")
+                .ToListAsync();
+
+            cantidadAndenes = eventosAndenInicio.Count;
+            _logger.LogInformation($"✅ Turno {turnoId}: Inicios de Anden = {cantidadAndenes}");
+
+            // Si no hay inicios, contar eventos de Fin
+            if (cantidadAndenes == 0)
+            {
+                var eventosAndenFin = await _context.EventosCarga
+                    .Where(e => e.TurnoProduccionID == turnoId
+                                && e.ZonaCarga == "Anden"
+                                && e.TipoEvento == "Fin")
+                    .CountAsync();
+
+                cantidadAndenes = eventosAndenFin;
+                _logger.LogInformation($"✅ Turno {turnoId}: Fines de Anden = {cantidadAndenes}");
+            }
+
+            // Si no hay eventos, buscar en LotesProduccion
+            if (cantidadAndenes == 0)
+            {
+                var lotesAnden = await _context.LotesProduccion
+                    .Where(l => l.TurnoID == turnoId && l.ZonaCarga == "Anden")
+                    .ToListAsync();
+
+                if (lotesAnden.Any())
+                {
+                    cantidadAndenes = lotesAnden.Count;
+                    _logger.LogInformation($"✅ Turno {turnoId}: Andenes desde LotesProduccion = {cantidadAndenes}");
+                }
+            }
+
+            if (cantidadAndenes == 0)
+            {
+                _logger.LogWarning($"⚠️ Turno {turnoId}: No se encontraron andenes");
+            }
+            else
+            {
+                _logger.LogInformation($"📊 Turno {turnoId}: Total andenes = {cantidadAndenes}");
+            }
 
             // 17. Objetivos diarios
             var objetivoPaletsTurno1 = ObtenerObjetivoPaletsTurno(1);
@@ -261,6 +315,7 @@ public class MetricasController : ControllerBase
                 BolsasRealizadas = bolsasRealizadas,
                 BolsasRotas = bolsasRotas,
                 BolsasNetas = bolsasNetas,
+                BolsasEnAnden = bolsasEnAnden,
                 ToneladasProducidas = Math.Round(toneladasProducidas, 2),
                 ToneladasPorHora = Math.Round(tnPorHora, 2),
 

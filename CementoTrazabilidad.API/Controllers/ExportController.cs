@@ -13,7 +13,7 @@ namespace CementoTrazabilidad.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-// ❌ QUITAR [Authorize] del controlador completo
+[Authorize(Roles = "Administrador,Supervisor")]
 public class ExportController : ControllerBase
 {
     private readonly IExcelExportService _excelService;
@@ -33,7 +33,6 @@ public class ExportController : ControllerBase
     }
 
     [HttpGet("dashboard/turno/{turnoId}")]
-    [AllowAnonymous]  // ✅ Permitir acceso sin autenticación
     public async Task<IActionResult> ExportarDashboardTurno(int turnoId)
     {
         try
@@ -132,7 +131,14 @@ public class ExportController : ControllerBase
             }
 
             // Generar Excel con el personal
-            var excel = _excelService.GenerarReporteTurno(metricas, MapearTurnoDto(turno), paradas, consumos, personalTurno, stockPalets);
+            var excel = _excelService.GenerarReporteTurno(
+                metricas,
+                MapearTurnoDto(turno),
+                paradas,
+                consumos,
+                personalTurno,
+                stockPalets ?? new RegistroStockPaletsDto() // <-- Asegura que nunca sea null
+            );
 
             var fileName = $"Dashboard_Turno{metricas.TurnoNumero}_{metricas.Fecha:yyyyMMdd}.xlsx";
             
@@ -148,7 +154,7 @@ public class ExportController : ControllerBase
     }
 
     [HttpGet("dashboard/diario/{fecha}")]
-    [AllowAnonymous]  // ✅ Permitir acceso sin autenticación
+    
     public async Task<IActionResult> ExportarDashboardDiario(string fecha)
     {
         try
@@ -200,7 +206,7 @@ public class ExportController : ControllerBase
     // ✅ AGREGAR este nuevo endpoint al final del archivo ExportController.cs
 
     [HttpGet("dashboard/mensual/{año}/{mes}")]
-    [AllowAnonymous]
+ 
     public async Task<IActionResult> ExportarDashboardMensual(int año, int mes)
     {
         try
@@ -387,6 +393,20 @@ public class ExportController : ControllerBase
         var bolsasNetas = bolsasRealizadas - bolsasRotas;
         var toneladasProducidas = bolsasNetas * 0.05m; // 50kg = 0.05 toneladas
 
+        var bolsasEnAnden = await _context.LotesProduccion
+    .Where(l => l.TurnoID == turnoId && l.ZonaCarga == "Anden")
+    .SumAsync(l => (int?)l.CantidadBolsas) ?? 0;
+
+        // Si no hay lotes con ZonaCarga = "Anden", usar BolsasAnden
+        if (bolsasEnAnden == 0)
+        {
+            bolsasEnAnden = await _context.LotesProduccion
+                .Where(l => l.TurnoID == turnoId)
+                .SumAsync(l => (int?)l.BolsasAnden) ?? 0;
+        }
+
+        _logger.LogInformation($"📊 Turno {turnoId}: Bolsas en andén = {bolsasEnAnden}");
+
         // ============================================
         // ✅ 6. CALCULAR Tn/h Y FACTORES EXCLUYENDO STOCK LLENO
         // ============================================
@@ -400,58 +420,56 @@ public class ExportController : ControllerBase
 
         var factorProduccion = tnPorHora / 80m * 100m; // Objetivo 80 Tn/h
 
+
         // ============================================
-        // ✅ 7. ANDENES - Solo desde EventosCarga
+        // ✅ 7. ANDENES - Corregido
         // ============================================
         int cantidadAndenes = 0;
 
-        // Buscar eventos de la zona "Anden" con TipoEvento "Inicio"
+        // ✅ 1. Contar TODOS los inicios de Anden (cada inicio = un andén)
         var eventosAndenInicio = await _context.EventosCarga
             .Where(e => e.TurnoProduccionID == turnoId
                         && e.ZonaCarga == "Anden"
                         && e.TipoEvento == "Inicio")
             .ToListAsync();
 
-        if (eventosAndenInicio.Any())
+        cantidadAndenes = eventosAndenInicio.Count;
+        _logger.LogInformation($"✅ Turno {turnoId}: Inicios de Anden = {cantidadAndenes}");
+
+        // ✅ 2. Si no hay inicios, contar eventos de Fin
+        if (cantidadAndenes == 0)
         {
-            cantidadAndenes = eventosAndenInicio.Count;
-            _logger.LogInformation($"✅ Turno {turnoId}: Andenes desde EventosCarga (inicios) = {cantidadAndenes}");
-        }
-        else
-        {
-            // Alternativa: Buscar eventos de Fin si no hay Inicios
             var eventosAndenFin = await _context.EventosCarga
                 .Where(e => e.TurnoProduccionID == turnoId
                             && e.ZonaCarga == "Anden"
                             && e.TipoEvento == "Fin")
                 .CountAsync();
 
-            if (eventosAndenFin > 0)
-            {
-                cantidadAndenes = eventosAndenFin;
-                _logger.LogInformation($"✅ Turno {turnoId}: Andenes desde EventosCarga (fines) = {cantidadAndenes}");
-            }
-            else
-            {
-                // Última alternativa: Contar eventos únicos de la zona Anden
-                var eventosAndenUnicos = await _context.EventosCarga
-                    .Where(e => e.TurnoProduccionID == turnoId
-                                && e.ZonaCarga == "Anden")
-                    .Select(e => e.ZonaCarga)
-                    .Distinct()
-                    .CountAsync();
+            cantidadAndenes = eventosAndenFin;
+            _logger.LogInformation($"✅ Turno {turnoId}: Fines de Anden = {cantidadAndenes}");
+        }
 
-                if (eventosAndenUnicos > 0)
-                {
-                    cantidadAndenes = eventosAndenUnicos;
-                    _logger.LogInformation($"✅ Turno {turnoId}: Andenes únicos en EventosCarga = {cantidadAndenes}");
-                }
+        // ✅ 3. Si no hay eventos, buscar en LotesProduccion
+        if (cantidadAndenes == 0)
+        {
+            var lotesAnden = await _context.LotesProduccion
+                .Where(l => l.TurnoID == turnoId && l.ZonaCarga == "Anden")
+                .ToListAsync();
+
+            if (lotesAnden.Any())
+            {
+                cantidadAndenes = lotesAnden.Count;
+                _logger.LogInformation($"✅ Turno {turnoId}: Andenes desde LotesProduccion = {cantidadAndenes}");
             }
         }
 
         if (cantidadAndenes == 0)
         {
-            _logger.LogWarning($"⚠️ Turno {turnoId}: No se encontraron andenes en EventosCarga");
+            _logger.LogWarning($"⚠️ Turno {turnoId}: No se encontraron andenes");
+        }
+        else
+        {
+            _logger.LogInformation($"📊 Turno {turnoId}: Total andenes = {cantidadAndenes}");
         }
 
         // ============================================
@@ -488,6 +506,7 @@ public class ExportController : ControllerBase
             BolsasRealizadas = bolsasRealizadas,
             BolsasRotas = bolsasRotas,
             BolsasNetas = bolsasNetas,
+            BolsasEnAnden = bolsasEnAnden,
             ToneladasProducidas = toneladasProducidas,
             ToneladasPorHora = tnPorHora,                 // ✅ Sin Stock Lleno
             ToneladasPorHoraObjetivo = 80m,

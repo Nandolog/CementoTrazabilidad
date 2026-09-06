@@ -29,6 +29,7 @@ public class MetricasTurnoDto
     public int BolsasRealizadas { get; set; }
     public int BolsasRotas { get; set; }
     public int BolsasNetas { get; set; }
+    public int BolsasEnAnden { get; set; }  // Bolsas que fueron a andén
     public decimal ToneladasProducidas { get; set; }
     public decimal ToneladasPorHora { get; set; }
     
@@ -56,4 +57,5 @@ public class MetricasTurnoDto
     public decimal CumplimientoProduccion { get; set; } // vs objetivo Tn/h
     public decimal CumplimientoHoras { get; set; } // vs objetivo horas
     public decimal CumplimientoPalets { get; set; } // vs objetivo palets turno
+    
 }
