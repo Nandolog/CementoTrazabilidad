@@ -1,7 +1,7 @@
-﻿using CementoTrazabilidad.Shared.DTOs;
-using System.Net.Http.Json;
-using Blazored.LocalStorage;
+﻿using Blazored.LocalStorage;
+using CementoTrazabilidad.Shared.DTOs;
 using Microsoft.AspNetCore.Components.Authorization;
+using System.Net.Http.Json;
 
 namespace CementoTrazabilidad.Blazor.Services;
 
@@ -84,5 +84,55 @@ public class ClientAuthService : IClientAuthService
     public async Task<string?> GetTokenAsync()
     {
         return await _localStorage.GetItemAsync<string>("authToken");
+    }
+    /// <summary>
+    /// Permite al usuario autenticado cambiar su propia contraseña.
+    /// </summary>
+    public async Task<(bool Success, string Message)> CambiarPasswordAsync(CambiarPasswordDto dto)
+    {
+        try
+        {
+            // Configurar el token de autenticación
+            var token = await _localStorage.GetItemAsync<string>("authToken");
+            if (!string.IsNullOrEmpty(token))
+            {
+                _httpClient.DefaultRequestHeaders.Authorization =
+                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            }
+
+            var response = await _httpClient.PostAsJsonAsync("api/auth/cambiar-password", dto);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<CambiarPasswordResponseDto>();
+                    return (result?.Success ?? true, result?.Mensaje ?? "Contraseña cambiada exitosamente");
+            }
+
+            // Intentar leer el mensaje de error
+            try
+            {
+                var errorResult = await response.Content.ReadFromJsonAsync<CambiarPasswordResponseDto>();
+                if (errorResult != null && !string.IsNullOrEmpty(errorResult.Mensaje))
+                {
+                    return (false, errorResult.Mensaje);
+                }
+            }
+            catch
+            {
+                // Si no se puede deserializar, intentar leer como string
+                var errorText = await response.Content.ReadAsStringAsync();
+                if (!string.IsNullOrEmpty(errorText))
+                {
+                    return (false, errorText);
+                }
+            }
+
+            return (false, "Error al cambiar la contraseña. Verifique los datos e intente nuevamente.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error en CambiarPasswordAsync: {ex.Message}");
+            return (false, $"Error: {ex.Message}");
+        }
     }
 }

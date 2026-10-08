@@ -100,6 +100,13 @@
                     </div>
                 </Authorized>
             </AuthorizeView>
+            <!-- ✅ NUEVO: Cambiar Contraseña -->
+            <div class="nav-item">
+                <a href="/cambiar-password" class="@GetNavClass("/cambiar-password")" @onclick="CloseSidebarOnMobile">
+                    <i class="fas fa-key"></i>
+                    <span>Cambiar Contraseña</span>
+                </a>
+            </div>
 
             <div class="nav-item mt-auto">
                 <button class="logout-btn" @onclick="Logout">

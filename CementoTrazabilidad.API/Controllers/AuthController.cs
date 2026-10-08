@@ -1,9 +1,11 @@
 ﻿using CementoTrazabilidad.Core.Entidades;
 using CementoTrazabilidad.Core.Interfaces;
-using CementoTrazabilidad.Shared.DTOs;  // ← Usar DTOs del Shared
+using CementoTrazabilidad.Infrastructure.Data;
+using CementoTrazabilidad.Shared.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.ComponentModel.DataAnnotations;  // ← Necesario para [Required]
+using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
 
 namespace CementoTrazabilidad.API.Controllers
@@ -14,11 +16,19 @@ namespace CementoTrazabilidad.API.Controllers
     {
         private readonly IAuthService _authService;
         private readonly IJwtService _jwtService;
+        private readonly ApplicationDbContext _context;
+        private readonly ILogger<AuthController> _logger;
 
-        public AuthController(IAuthService authService, IJwtService jwtService)
+        public AuthController(
+            IAuthService authService,
+            IJwtService jwtService,
+            ApplicationDbContext context,
+            ILogger<AuthController> logger)
         {
             _authService = authService;
             _jwtService = jwtService;
+            _context = context;
+            _logger = logger;
         }
 
         [HttpPost("login")]
@@ -45,12 +55,10 @@ namespace CementoTrazabilidad.API.Controllers
 
                 var token = _jwtService.GenerateToken(usuario);
 
-                // Obtener información del Personal relacionado
-                string nombreCompleto = usuario.Legajo; // Valor por defecto
+                string nombreCompleto = usuario.Legajo;
 
                 if (usuario.Personal != null)
                 {
-                    // Personal solo tiene "Nombre", no "Apellido"
                     nombreCompleto = usuario.Personal.Nombre ?? usuario.Legajo;
                 }
 
@@ -98,30 +106,75 @@ namespace CementoTrazabilidad.API.Controllers
             });
         }
 
-        [HttpPost("change-password")]
+        // ============================================================
+        // ✅ ENDPOINT: CAMBIAR CONTRASEÑA (USUARIO AUTENTICADO)
+        // ============================================================
+        [HttpPost("cambiar-password")]
         [Authorize]
-        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+        public async Task<IActionResult> CambiarPassword([FromBody] CambiarPasswordDto dto)
         {
             try
             {
-                var usuarioId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+                if (!ModelState.IsValid)
+                    return BadRequest(ModelState);
 
-                var result = await _authService.ChangePasswordAsync(
-                    usuarioId,
-                    request.CurrentPassword,
-                    request.NewPassword);
+                // 1. Obtener el usuario autenticado desde el token JWT
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                               ?? User.FindFirst("userId")?.Value
+                               ?? User.FindFirst("sub")?.Value;
 
-                if (!result)
-                    return BadRequest(new { message = "Contraseña actual incorrecta" });
+                if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var userId))
+                {
+                    _logger.LogWarning("⚠️ No se pudo obtener el ID del usuario autenticado del token");
+                    return Unauthorized(new { success = false, message = "Usuario no identificado" });
+                }
 
-                return Ok(new { message = "✅ Contraseña actualizada exitosamente" });
+                // 2. Buscar el usuario en la base de datos
+                var usuario = await _context.Usuarios.FindAsync(userId);
+                if (usuario == null)
+                {
+                    _logger.LogWarning($"⚠️ Usuario {userId} no encontrado");
+                    return NotFound(new { success = false, message = "Usuario no encontrado" });
+                }
+
+                // 3. Verificar la contraseña actual
+                bool passwordCorrecta = BCrypt.Net.BCrypt.Verify(dto.PasswordActual, usuario.PasswordHash);
+
+                if (!passwordCorrecta)
+                {
+                    _logger.LogWarning($"⚠️ Contraseña actual incorrecta para usuario {usuario.Legajo}");
+                    return BadRequest(new { success = false, message = "La contraseña actual es incorrecta" });
+                }
+
+                // 4. Validar que la nueva contraseña sea diferente a la actual
+                if (BCrypt.Net.BCrypt.Verify(dto.PasswordNueva, usuario.PasswordHash))
+                {
+                    return BadRequest(new { success = false, message = "La nueva contraseña debe ser diferente a la actual" });
+                }
+
+                // 5. Actualizar la contraseña con BCrypt
+                usuario.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.PasswordNueva);
+
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation($"✅ Contraseña cambiada exitosamente para usuario {usuario.Legajo}");
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "Contraseña cambiada exitosamente. Use su nueva contraseña en el próximo inicio de sesión."
+                });
             }
             catch (Exception ex)
             {
-                return BadRequest(new { error = ex.Message });
+                _logger.LogError(ex, "❌ Error al cambiar contraseña");
+                return StatusCode(500, new { success = false, message = "Error interno del servidor" });
             }
         }
 
+        // ============================================================
+        // ✅ ENDPOINT: GENERAR HASH (SOLO DESARROLLO)
+        // ============================================================
         [HttpGet("generate-hash")]
         [AllowAnonymous]
         public IActionResult GenerateHash([FromQuery] string password = "Admin123!")
@@ -144,6 +197,4 @@ namespace CementoTrazabilidad.API.Controllers
             }
         }
     }
-
-    
 }
