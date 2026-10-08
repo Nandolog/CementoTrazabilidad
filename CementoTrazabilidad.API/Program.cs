@@ -23,6 +23,7 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
     });
 
+
 // CORS - Configuración actualizada
 builder.Services.AddCors(options =>
 {
@@ -92,7 +93,8 @@ builder.Services.AddScoped<IUsuarioRepository, UsuarioRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IExcelExportService, ExcelExportService>();
-builder.Services.AddScoped<ITurnoValidationService, TurnoValidationService>();  
+builder.Services.AddScoped<ITurnoValidationService, TurnoValidationService>();
+builder.Services.AddScoped<ControlPesoService>();
 // JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "DefaultKeyMinimum32CharactersLong!";
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "CementoTrazabilidad.API";

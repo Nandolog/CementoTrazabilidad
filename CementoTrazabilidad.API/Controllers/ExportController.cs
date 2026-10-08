@@ -76,6 +76,39 @@ public class ExportController : ControllerBase
                 TipoCemento = c.TipoCemento,
                 Observaciones = c.Observaciones
             }).ToList();
+            // ✅ Obtener controles de peso del turno
+            var controlesPesoEntities = await _context.ControlesPeso
+                .Include(c => c.Detalles)
+                .Where(c => c.TurnoProduccionID == turnoId)
+                .OrderBy(c => c.NumeroControl)
+                .ToListAsync();
+
+            var controlesPeso = controlesPesoEntities.Select(c => new ControlPesoDto
+            {
+                ControlPesoID = c.ControlPesoID,
+                TurnoProduccionID = c.TurnoProduccionID,
+                FechaHora = c.FechaHora,
+                NumeroControl = c.NumeroControl,
+                OperadorResponsable = c.OperadorResponsable,
+                Observacion = c.Observaciones,
+                PesoObjetivo = c.PesoObjetivo,
+                PesoPromedioControlador = c.PesoPromedioControlador,
+                PesoPromedioBalanza = c.PesoPromedioBalanza,
+                DiferenciaPromedio = c.DiferenciaPromedio,
+                DesviacionEstandar = c.DesviacionEstandar,
+                DentroDeTolerancia = c.DentroDeTolerancia,
+                EstadoControl = c.EstadoControl,
+                Detalles = c.Detalles.Select(d => new ControlPesoDetalleDto
+                {
+                    NumeroBoquilla = d.NumeroBoquilla,
+                    PesoControlador = d.PesoControlador,
+                    PesoBalanza = d.PesoBalanza,
+                    AjusteAplicado = d.AjusteAplicado,
+                    Observacion = d.Observacion
+                }).ToList()
+            }).ToList();
+
+            _logger.LogInformation($"✅ Controles de peso cargados: {controlesPeso.Count}");
 
             // Generar Excel
             // ✅ Obtener personal del turno
@@ -137,7 +170,8 @@ public class ExportController : ControllerBase
                 paradas,
                 consumos,
                 personalTurno,
-                stockPalets ?? new RegistroStockPaletsDto() // <-- Asegura que nunca sea null
+                stockPalets ?? new RegistroStockPaletsDto(),
+                controlesPeso
             );
 
             var fileName = $"Dashboard_Turno{metricas.TurnoNumero}_{metricas.Fecha:yyyyMMdd}.xlsx";

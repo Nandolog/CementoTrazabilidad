@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\CementoTrazabilidad.Core\CementoTrazabilidad.Core.csproj" />
+    <ProjectReference Include="..\CementoTrazabilidad.shared\CementoTrazabilidad.shared.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -5,7 +5,7 @@ using System.Linq;
 using System.Net.NetworkInformation;
 using System.Text;
 using System.Threading.Tasks;
-using CementoTrazabilidad.Core.Entidades;
+
 
 namespace CementoTrazabilidad.Core.Interfaces
 {

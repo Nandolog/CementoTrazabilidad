@@ -29,6 +29,7 @@ builder.Services.AddScoped<ILoteService, LoteService>();
 builder.Services.AddScoped<IMetricasService, MetricasService>();
 builder.Services.AddScoped<IDespachoService, DespachoService>();
 builder.Services.AddScoped<IDateTimeService, DateTimeService>();
+builder.Services.AddScoped<IControlPesoService, ControlPesoService>();
 
 // Nuevo: servicio de estado para notificar cambios de andenes/palets
 builder.Services.AddSingleton<AndenesStateService>();

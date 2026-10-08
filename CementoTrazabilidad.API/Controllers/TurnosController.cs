@@ -143,14 +143,51 @@ namespace CementoTrazabilidad.API.Controllers
                 var ahora = DateTime.Now;
                 var horaActual = ahora.TimeOfDay;
                 var fechaActual = DateOnly.FromDateTime(ahora);
-                var diaSemana = ahora.DayOfWeek;
-                bool esDomingo = diaSemana == DayOfWeek.Sunday;
 
                 var horario = ObtenerHorarioTurno(turno.TurnoNumero);
 
-                var horaInicioMinima = horario.HoraInicio.Add(TimeSpan.FromMinutes(-30));
-                var horaInicioMaxima = horario.HoraInicio.Add(TimeSpan.FromMinutes(200));
-                bool horarioValido = horaActual >= horaInicioMinima && horaActual <= horaInicioMaxima;
+                // Calculamos ventana en minutos relativos al inicio (±)
+                var inicio = horario.HoraInicio.Add(TimeSpan.FromMinutes(-600));
+                var fin = horario.HoraInicio.Add(TimeSpan.FromMinutes(600));
+
+                // Normalizar fin en rango 0..24h (si supera 24h)
+                if (fin >= TimeSpan.FromDays(1))
+                {
+                    fin = fin - TimeSpan.FromDays(Math.Floor(fin.TotalDays));
+                }
+
+                // Si la ventana NO cruza medianoche: inicio <= fin
+                bool horarioValido;
+                if (inicio <= fin)
+                {
+                    horarioValido = horaActual >= inicio && horaActual <= fin;
+                }
+                else
+                {
+                    // Cruza medianoche: válido si horaActual >= inicio O horaActual <= fin
+                    horarioValido = horaActual >= inicio || horaActual <= fin;
+                }
+
+                if (horaActual < inicio)
+                {
+                    _logger.LogWarning($"⏰ Turno {turno.TurnoNumero} aún no comenzado. Hora actual: {horaActual:hh\\:mm}, " +
+                                       $"puede iniciar a partir de: {inicio:hh\\:mm}");
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = $"El turno {turno.TurnoNumero} puede iniciarse a partir de las {inicio:hh\\:mm}",
+                        horarioPermitido = new
+                        {
+                            desde = inicio.ToString(@"hh\:mm"),
+                            hasta = fin.ToString(@"hh\:mm")
+                        },
+                        horaActual = horaActual.ToString(@"hh\:mm")
+                    });
+                }
+
+                // Si es domingo, validar reglas especiales
+                var diaSemana = ahora.DayOfWeek;
+                bool esDomingo = diaSemana == DayOfWeek.Sunday;
 
                 if (esDomingo)
                 {
@@ -190,12 +227,12 @@ namespace CementoTrazabilidad.API.Controllers
                         {
                             success = false,
                             message = $"El turno {turno.TurnoNumero} solo puede iniciarse entre " +
-                                     $"{horaInicioMinima:hh\\:mm} y {horaInicioMaxima:hh\\:mm}. " +
+                                     $"{inicio:hh\\:mm} y {fin:hh\\:mm}. " +
                                      $"Hora actual: {horaActual:hh\\:mm}",
                             horarioPermitido = new
                             {
-                                desde = horaInicioMinima.ToString(@"hh\:mm"),
-                                hasta = horaInicioMaxima.ToString(@"hh\:mm")
+                                desde = inicio.ToString(@"hh\:mm"),
+                                hasta = fin.ToString(@"hh\:mm")
                             },
                             horaActual = horaActual.ToString(@"hh\:mm")
                         });

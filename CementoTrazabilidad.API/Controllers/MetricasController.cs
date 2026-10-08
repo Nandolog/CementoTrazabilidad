@@ -193,12 +193,18 @@ public class MetricasController : ControllerBase
                 .AverageAsync() ?? 50m;
 
             var toneladasProducidas = (bolsasNetas * pesoPromedioBolsa) / 1000m;
-            // ✅ AGREGAR: Calcular bolsas en andén
+
+            // ✅ CORREGIDO: Tn/h sobre Horas de Marcha (tiempo total del turno)
+            var horasMarchaDecimal = (decimal)horasMarcha.TotalHours;
+            var tnPorHoraReal = horasMarchaDecimal > 0
+                ? toneladasProducidas / horasMarchaDecimal
+                : 0m;
+
+            // Bolsas en andén
             var bolsasEnAnden = await _context.LotesProduccion
                 .Where(l => l.TurnoID == turnoId && l.ZonaCarga == "Anden")
                 .SumAsync(l => (int?)l.CantidadBolsas) ?? 0;
 
-            // Si no hay lotes con ZonaCarga = "Anden", usar BolsasAnden
             if (bolsasEnAnden == 0)
             {
                 bolsasEnAnden = await _context.LotesProduccion
@@ -208,37 +214,33 @@ public class MetricasController : ControllerBase
 
             _logger.LogInformation($"📊 Turno {turnoId}: Bolsas en andén = {bolsasEnAnden}");
 
-            // 10. Tn/h
-            var horasProductivasDecimal = (decimal)horasProductivas.TotalHours;
-            var tnPorHora = horasProductivasDecimal > 0
-                ? toneladasProducidas / horasProductivasDecimal
-                : 0m;
-
-            // 11. KPI: Confiabilidad = (HorasMarcha - Paradas) / HorasMarcha * 100
+            // 10. KPI: CONFIABILIDAD (FC)
+            // ✅ FÓRMULA CORRECTA: FC = (HM - Paradas) / HM × 100
             var factorConfiabilidad = horasMarcha.TotalMinutes > 0
                 ? (decimal)((horasMarcha.TotalMinutes - totalParadasMinutes) / horasMarcha.TotalMinutes * 100.0)
                 : 0m;
 
-            // 12. Productividad = Tn/h real / Tn/h objetivo * 100
+            // 11. KPI: PRODUCTIVIDAD (FP)
+            // ✅ FÓRMULA CORRECTA: FP = (Tn/h Real / Objetivo) × 100
             var factorProduccion = OBJETIVO_TN_POR_HORA > 0
-                ? (tnPorHora / OBJETIVO_TN_POR_HORA * 100m)
+                ? (tnPorHoraReal / OBJETIVO_TN_POR_HORA * 100m)
                 : 0m;
 
-            // 13. Eficiencia Global = Confiabilidad * Productividad / 100
-            var eficienciaGlobal = Math.Round(factorConfiabilidad * factorProduccion / 100m, 2);
+            // 12. EFICIENCIA GLOBAL (OEE)
+            // ✅ FÓRMULA CORRECTA: OEE = (FC × FP) / 100
+            var eficienciaGlobal = Math.Round((factorConfiabilidad * factorProduccion) / 100m, 2);
 
-            // 14. Cumplimiento de horas
+            // 13. Cumplimiento de horas
             var cumplimientoHoras = duracionTeorica.TotalHours > 0
                 ? Math.Round((decimal)(horasProductivas.TotalHours / duracionTeorica.TotalHours * 100.0), 2)
                 : 0m;
 
-            // 15. Palets
+            // 14. Palets
             var paletsRealizados = (int)(bolsasNetas / BOLSAS_POR_PALET);
 
-            // 16. Cantidad de andenes desde eventos
+            // 15. Cantidad de andenes desde eventos
             int cantidadAndenes = 0;
 
-            // Contar TODOS los inicios de Anden (cada inicio = un andén)
             var eventosAndenInicio = await _context.EventosCarga
                 .Where(e => e.TurnoProduccionID == turnoId
                             && e.ZonaCarga == "Anden"
@@ -248,7 +250,6 @@ public class MetricasController : ControllerBase
             cantidadAndenes = eventosAndenInicio.Count;
             _logger.LogInformation($"✅ Turno {turnoId}: Inicios de Anden = {cantidadAndenes}");
 
-            // Si no hay inicios, contar eventos de Fin
             if (cantidadAndenes == 0)
             {
                 var eventosAndenFin = await _context.EventosCarga
@@ -261,7 +262,6 @@ public class MetricasController : ControllerBase
                 _logger.LogInformation($"✅ Turno {turnoId}: Fines de Anden = {cantidadAndenes}");
             }
 
-            // Si no hay eventos, buscar en LotesProduccion
             if (cantidadAndenes == 0)
             {
                 var lotesAnden = await _context.LotesProduccion
@@ -284,13 +284,13 @@ public class MetricasController : ControllerBase
                 _logger.LogInformation($"📊 Turno {turnoId}: Total andenes = {cantidadAndenes}");
             }
 
-            // 17. Objetivos diarios
+            // 16. Objetivos diarios
             var objetivoPaletsTurno1 = ObtenerObjetivoPaletsTurno(1);
             var objetivoPaletsTurno2 = ObtenerObjetivoPaletsTurno(2);
             var objetivoPaletsTurno3 = ObtenerObjetivoPaletsTurno(3);
             var paletsObjetivoDiario = objetivoPaletsTurno1 + objetivoPaletsTurno2 + objetivoPaletsTurno3;
 
-            // 18. Construir DTO
+            // 17. Construir DTO
             var metricas = new MetricasTurnoDto
             {
                 TurnoProduccionID = turnoId,
@@ -317,7 +317,7 @@ public class MetricasController : ControllerBase
                 BolsasNetas = bolsasNetas,
                 BolsasEnAnden = bolsasEnAnden,
                 ToneladasProducidas = Math.Round(toneladasProducidas, 2),
-                ToneladasPorHora = Math.Round(tnPorHora, 2),
+                ToneladasPorHora = Math.Round(tnPorHoraReal, 2),      // ✅ Usa tnPorHoraReal
 
                 CantidadAndenes = cantidadAndenes,
                 PaletsRealizados = paletsRealizados,
@@ -327,7 +327,7 @@ public class MetricasController : ControllerBase
                 EficienciaGlobal = Math.Round(eficienciaGlobal, 2),
 
                 ToneladasPorHoraObjetivo = OBJETIVO_TN_POR_HORA,
-                HorasProductivasObjetivo = duracionTeorica,
+                HorasProductivasObjetivo = duracionTeorica,           // ✅ Nombre original del DTO
                 PaletsObjetivoDiario = paletsObjetivoDiario,
                 PaletsObjetivoTurno = objetivoPaletsTurno,
 
@@ -338,7 +338,7 @@ public class MetricasController : ControllerBase
                     : 0m
             };
 
-            // 19. Respuesta con validaciones
+            // 18. Respuesta con validaciones
             return Ok(new
             {
                 success = true,
@@ -354,7 +354,8 @@ public class MetricasController : ControllerBase
                     DuracionTeoricaHoras = Math.Round(duracionTeorica.TotalHours, 2),
                     EstadoTurno = turno.Estado,
                     ObjetivoPaletsTurno = objetivoPaletsTurno,
-                    ObjetivoBolsasTurno = objetivoBolsasTurno
+                    ObjetivoBolsasTurno = objetivoBolsasTurno,
+                    TnPorHoraReal = Math.Round(tnPorHoraReal, 2)
                 }
             });
         }

@@ -5,7 +5,10 @@ using System.Drawing;
 namespace CementoTrazabilidad.API.Services;
 
 public interface IExcelExportService
+
 {
+    byte[] GenerarReporteTurno(MetricasTurnoDto metricas,TurnoDto turno,List<ParadasDetalladasDto> paradas,List<ConsumoBolsasDTO> consumos,List<PersonalTurnoDto> personal,
+       RegistroStockPaletsDto stockPalets,List<ControlPesoDto> controlesPeso);
     byte[] GenerarReporteTurno(MetricasTurnoDto metricas, TurnoDto turno, List<ParadasDetalladasDto> paradas, List<ConsumoBolsasDTO> consumos, List<PersonalTurnoDto> personal, RegistroStockPaletsDto stockPalets);
     byte[] GenerarReporteDiario(List<MetricasTurnoDto> metricasTurnos, List<TurnoDto> turnos, MetricasDiariasDto metricasDiarias);
     byte[] GenerarReporteMensual(List<MetricasTurnoDto> metricasTurnos, List<TurnoDto> turnos, int año, int mes);
@@ -13,7 +16,7 @@ public interface IExcelExportService
 
 public class ExcelExportService : IExcelExportService
 {
-    public byte[] GenerarReporteTurno(MetricasTurnoDto metricas, TurnoDto turno, List<ParadasDetalladasDto> paradas, List<ConsumoBolsasDTO> consumos, List<PersonalTurnoDto> personal, RegistroStockPaletsDto stockPalets)
+    public byte[] GenerarReporteTurno(MetricasTurnoDto metricas, TurnoDto turno, List<ParadasDetalladasDto> paradas, List<ConsumoBolsasDTO> consumos, List<PersonalTurnoDto> personal, RegistroStockPaletsDto stockPalets, List<ControlPesoDto> controlesPeso)
     {
         using var workbook = new XLWorkbook();
         var ws = workbook.Worksheets.Add($"Turno {metricas.TurnoNumero}");
@@ -452,6 +455,163 @@ public class ExcelExportService : IExcelExportService
             ws.Range(row, 1, row, 4).Style.Fill.BackgroundColor = XLColor.LightGray;
 
             ws.Columns().AdjustToContents();
+        }
+        // ============ SECCIÓN: CONTROL DE PESO ============
+        if (controlesPeso != null && controlesPeso.Any())
+        {
+            row += 2;
+            ws.Cell(row, 1).Value = "CONTROL DE PESO - 8 BOQUILLAS";
+            ws.Range(row, 1, row, 8).Merge().Style
+                .Font.SetBold().Font.SetFontSize(14)
+                .Fill.SetBackgroundColor(XLColor.DarkOrange)
+                .Font.SetFontColor(XLColor.White)
+                .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
+            row++;
+
+            // Resumen general
+            var totalControles = controlesPeso.Count;
+            var controlesOK = controlesPeso.Count(c => c.EstadoControl == "OK");
+            var controlesFuera = controlesPeso.Count(c => c.EstadoControl == "FUERA_TOLERANCIA");
+            var controlesCriticos = controlesPeso.Count(c => c.EstadoControl == "CRITICO");
+            var porcentajeAceptacion = totalControles > 0
+                ? (decimal)controlesOK / totalControles * 100
+                : 0;
+
+            ws.Cell(row, 1).Value = "Total Controles:";
+            ws.Cell(row, 1).Style.Font.Bold = true;
+            ws.Cell(row, 2).Value = totalControles;
+
+            ws.Cell(row, 3).Value = "Controles OK:";
+            ws.Cell(row, 3).Style.Font.Bold = true;
+            ws.Cell(row, 4).Value = controlesOK;
+            ws.Cell(row, 4).Style.Fill.SetBackgroundColor(XLColor.LightGreen).Font.SetBold();
+
+            ws.Cell(row, 5).Value = "Fuera Tolerancia:";
+            ws.Cell(row, 5).Style.Font.Bold = true;
+            ws.Cell(row, 6).Value = controlesFuera;
+            ws.Cell(row, 6).Style.Fill.SetBackgroundColor(XLColor.LightYellow).Font.SetBold();
+
+            ws.Cell(row, 7).Value = "Críticos:";
+            ws.Cell(row, 7).Style.Font.Bold = true;
+            ws.Cell(row, 8).Value = controlesCriticos;
+            ws.Cell(row, 8).Style.Fill.SetBackgroundColor(XLColor.LightPink).Font.SetBold();
+            row++;
+
+            ws.Cell(row, 1).Value = "% Aceptación:";
+            ws.Cell(row, 1).Style.Font.Bold = true;
+            ws.Cell(row, 2).Value = $"{porcentajeAceptacion:N1}%";
+            ws.Cell(row, 2).Style.Font.SetBold();
+            var colorAceptacion = porcentajeAceptacion >= 90 ? XLColor.Green
+                : porcentajeAceptacion >= 70 ? XLColor.Orange
+                : XLColor.Red;
+            ws.Cell(row, 2).Style.Fill.SetBackgroundColor(colorAceptacion).Font.SetFontColor(XLColor.White);
+            row++;
+
+            // Detalle de cada control
+            foreach (var control in controlesPeso.OrderBy(c => c.NumeroControl))
+            {
+                row++;
+                ws.Cell(row, 1).Value = $"Control #{control.NumeroControl} - {control.FechaHora:dd/MM/yyyy HH:mm} - Operador: {control.OperadorResponsable}";
+                ws.Range(row, 1, row, 8).Merge().Style
+                    .Font.SetBold()
+                    .Fill.SetBackgroundColor(XLColor.LightGray);
+                row++;
+
+                // Resumen del control
+                ws.Cell(row, 1).Value = "Peso Objetivo:";
+                ws.Cell(row, 2).Value = $"{control.PesoObjetivo:N3} kg";
+                ws.Cell(row, 3).Value = "Prom. Balanza:";
+                ws.Cell(row, 4).Value = $"{control.PesoPromedioBalanza:N3} kg";
+                ws.Cell(row, 5).Value = "Diferencia:";
+                ws.Cell(row, 6).Value = $"{control.DiferenciaPromedio:+0.000;-0.000;0.000} kg";
+                ws.Cell(row, 7).Value = "Estado:";
+                ws.Cell(row, 8).Value = control.EstadoControl;
+                var estadoColor = control.EstadoControl == "OK" ? XLColor.Green
+                    : control.EstadoControl == "FUERA_TOLERANCIA" ? XLColor.Orange
+                    : XLColor.Red;
+                ws.Cell(row, 8).Style.Fill.SetBackgroundColor(estadoColor).Font.SetFontColor(XLColor.White).Font.SetBold();
+                row++;
+
+                // Encabezado de tabla de boquillas
+                ws.Cell(row, 1).Value = "Boquilla";
+                ws.Cell(row, 2).Value = "Peso Balanza (kg)";
+                ws.Cell(row, 3).Value = "Peso Controlador (kg)";
+                ws.Cell(row, 4).Value = "Diferencia (Bal-Ctrl)";
+                ws.Cell(row, 5).Value = "Desvío vs Objetivo";
+                ws.Cell(row, 6).Value = "Estado Controlador";
+                ws.Cell(row, 7).Value = "Estado Peso";
+                ws.Cell(row, 8).Value = "Observación";
+                ws.Range(row, 1, row, 8).Style.Font.Bold = true;
+                ws.Range(row, 1, row, 8).Style.Fill.BackgroundColor = XLColor.LightBlue;
+                row++;
+
+                // Detalle por boquilla
+                foreach (var detalle in control.Detalles.OrderBy(d => d.NumeroBoquilla))
+                {
+                    var difCtrl = detalle.PesoBalanza - detalle.PesoControlador;
+                    var absDifCtrl = Math.Abs(difCtrl);
+
+                    var difObjetivo = detalle.PesoBalanza - control.PesoObjetivo;
+                    var absDifObjetivo = Math.Abs(difObjetivo);
+
+                    var estadoCtrl = absDifCtrl <= 0.1m ? "Calibrado"
+                        : absDifCtrl <= 0.3m ? "Revisar"
+                        : "Descalibrado";
+
+                    var estadoPeso = absDifObjetivo <= 0.5m ? "En norma"
+                        : absDifObjetivo <= 1.0m ? "Fuera norma"
+                        : "Crítico";
+
+                    ws.Cell(row, 1).Value = $"B{detalle.NumeroBoquilla}";
+                    ws.Cell(row, 2).Value = detalle.PesoBalanza;
+                    ws.Cell(row, 2).Style.NumberFormat.Format = "0.000";
+                    ws.Cell(row, 3).Value = detalle.PesoControlador;
+                    ws.Cell(row, 3).Style.NumberFormat.Format = "0.000";
+                    ws.Cell(row, 4).Value = difCtrl;
+                    ws.Cell(row, 4).Style.NumberFormat.Format = "+0.000;-0.000;0.000";
+                    ws.Cell(row, 5).Value = difObjetivo;
+                    ws.Cell(row, 5).Style.NumberFormat.Format = "+0.000;-0.000;0.000";
+                    ws.Cell(row, 6).Value = estadoCtrl;
+                    ws.Cell(row, 7).Value = estadoPeso;
+                    ws.Cell(row, 8).Value = detalle.Observacion ?? "";
+
+                    // Colorear según estado
+                    if (absDifCtrl > 0.3m || absDifObjetivo > 1.0m)
+                    {
+                        ws.Range(row, 1, row, 8).Style.Fill.SetBackgroundColor(XLColor.LightPink);
+                    }
+                    else if (absDifCtrl > 0.1m || absDifObjetivo > 0.5m)
+                    {
+                        ws.Range(row, 1, row, 8).Style.Fill.SetBackgroundColor(XLColor.LightYellow);
+                    }
+
+                    row++;
+                }
+
+                // Observaciones generales del control
+                if (!string.IsNullOrEmpty(control.Observacion))
+                {
+                    ws.Cell(row, 1).Value = "Observación:";
+                    ws.Cell(row, 1).Style.Font.Italic = true;
+                    ws.Cell(row, 2).Value = control.Observacion;
+                    ws.Range(row, 2, row, 8).Merge();
+                    row++;
+                }
+            }
+        }
+        else
+        {
+            row += 2;
+            ws.Cell(row, 1).Value = "CONTROL DE PESO";
+            ws.Range(row, 1, row, 4).Merge().Style
+                .Font.SetBold().Font.SetFontSize(12)
+                .Fill.SetBackgroundColor(XLColor.DarkOrange)
+                .Font.SetFontColor(XLColor.White)
+                .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
+            row++;
+            ws.Cell(row, 1).Value = "No hay controles de peso registrados en este turno";
+            ws.Range(row, 1, row, 4).Merge().Style.Font.SetItalic();
+            row++;
         }
 
         ws.Columns().AdjustToContents();
@@ -944,5 +1104,17 @@ public class ExcelExportService : IExcelExportService
         if (string.IsNullOrEmpty(texto)) return texto;
         if (texto.Length <= maxLongitud) return texto;
         return texto.Substring(0, maxLongitud - 3) + "...";
+    }
+
+    public byte[] GenerarReporteTurno(
+        MetricasTurnoDto metricas,
+        TurnoDto turno,
+        List<ParadasDetalladasDto> paradas,
+        List<ConsumoBolsasDTO> consumos,
+        List<PersonalTurnoDto> personal,
+        RegistroStockPaletsDto stockPalets)
+    {
+        // Llama a la sobrecarga principal pasando null para controlesPeso
+        return GenerarReporteTurno(metricas, turno, paradas, consumos, personal, stockPalets, null);
     }
 }

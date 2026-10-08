@@ -24,7 +24,9 @@ namespace CementoTrazabilidad.Infrastructure.Data
         public DbSet<RegistroStockPalets> RegistrosStockPalets { get; set; }
         public DbSet<ConfiguracionTurno> ConfiguracionTurnos { get; set; }
         public DbSet<ProgramacionProduccion> ProgramacionProduccion { get; set; }
-
+        public DbSet<ControlPeso> ControlesPeso { get; set; }
+        public DbSet<ControlPesoDetalle> ControlesPesoDetalle { get; set; }
+        public DbSet<ConfiguracionToleranciaPeso> ConfiguracionesToleranciaPeso { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -357,10 +359,162 @@ namespace CementoTrazabilidad.Infrastructure.Data
                     .IsUnique()
                     .HasDatabaseName("IX_ProgramacionProduccion_Fecha");
             });
+            // ================================================================
+            // ⚖️ CONFIGURACIÓN DE CONTROL DE PESO
+            // ================================================================
+
+            // Configuración de ControlPeso
+            modelBuilder.Entity<ControlPeso>(entity =>
+            {
+                entity.ToTable("ControlPeso");
+                entity.HasKey(e => e.ControlPesoID);
+
+                entity.Property(e => e.FechaHora)
+                    .IsRequired();
+
+                entity.Property(e => e.NumeroControl)
+                    .IsRequired();
+
+                entity.Property(e => e.OperadorResponsable)
+                    .HasMaxLength(100)
+                    .IsRequired();
+
+                entity.Property(e => e.Observaciones)
+                    .HasMaxLength(500);
+
+                entity.Property(e => e.PesoObjetivo)
+                    .HasPrecision(10, 3)
+                    .IsRequired();
+
+                entity.Property(e => e.PesoPromedioControlador)
+                    .HasPrecision(10, 3)
+                    .IsRequired();
+
+                entity.Property(e => e.PesoPromedioBalanza)
+                    .HasPrecision(10, 3)
+                    .IsRequired();
+
+                entity.Property(e => e.DiferenciaPromedio)
+                    .HasPrecision(10, 3)
+                    .IsRequired();
+
+                entity.Property(e => e.DesviacionEstandar)
+                    .HasPrecision(10, 3)
+                    .IsRequired();
+
+                entity.Property(e => e.DentroDeTolerancia)
+                    .IsRequired();
+
+                entity.Property(e => e.EstadoControl)
+                    .HasMaxLength(20)
+                    .IsRequired();
+
+                entity.Property(e => e.FechaCreacion)
+                    .IsRequired();
+
+                // Relación con TurnoProduccion
+                entity.HasOne(e => e.TurnoProduccion)
+                    .WithMany()
+                    .HasForeignKey(e => e.TurnoProduccionID)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                // Relación 1 a muchos con Detalles
+                entity.HasMany(e => e.Detalles)
+                    .WithOne(d => d.ControlPeso)
+                    .HasForeignKey(d => d.ControlPesoID)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                // Índices
+                entity.HasIndex(e => e.TurnoProduccionID)
+                    .HasDatabaseName("IX_ControlPeso_Turno");
+
+                entity.HasIndex(e => new { e.TurnoProduccionID, e.NumeroControl })
+                    .HasDatabaseName("IX_ControlPeso_Turno_Numero");
+            });
+
+            // Configuración de ControlPesoDetalle
+            modelBuilder.Entity<ControlPesoDetalle>(entity =>
+            {
+                entity.ToTable("ControlPesoDetalle");
+                entity.HasKey(e => e.ControlPesoDetalleID);
+
+                entity.Property(e => e.NumeroBoquilla)
+                    .IsRequired();
+
+                entity.Property(e => e.PesoControlador)
+                    .HasPrecision(10, 3)
+                    .IsRequired();
+
+                entity.Property(e => e.PesoBalanza)
+                    .HasPrecision(10, 3)
+                    .IsRequired();
+
+                entity.Property(e => e.Diferencia)
+                    .HasPrecision(10, 3)
+                    .IsRequired();
+
+                entity.Property(e => e.AjusteAplicado)
+                    .HasPrecision(10, 3)
+                    .IsRequired();
+
+                entity.Property(e => e.DentroDeTolerancia)
+                    .IsRequired();
+
+                entity.Property(e => e.Observacion)
+                    .HasMaxLength(300);
+
+                // Índice por boquilla para consultas rápidas
+                entity.HasIndex(e => new { e.ControlPesoID, e.NumeroBoquilla })
+                    .HasDatabaseName("IX_ControlPesoDetalle_Control_Boquilla");
+            });
+
+            // Configuración de ConfiguracionToleranciaPeso
+            modelBuilder.Entity<ConfiguracionToleranciaPeso>(entity =>
+            {
+                entity.ToTable("ConfiguracionToleranciaPeso");
+                entity.HasKey(e => e.ConfiguracionToleranciaPesoID);
+
+                entity.Property(e => e.PesoObjetivo)
+                    .HasPrecision(10, 3)
+                    .IsRequired();
+
+                entity.Property(e => e.ToleranciaMinima)
+                    .HasPrecision(10, 3)
+                    .IsRequired();
+
+                entity.Property(e => e.ToleranciaMaxima)
+                    .HasPrecision(10, 3)
+                    .IsRequired();
+
+                entity.Property(e => e.ToleranciaAjuste)
+                    .HasPrecision(10, 3)
+                    .IsRequired();
+
+                entity.Property(e => e.Activo)
+                    .IsRequired()
+                    .HasDefaultValue(true);
+
+                entity.Property(e => e.FechaCreacion)
+                    .IsRequired()
+                    .HasDefaultValueSql("GETDATE()");
+
+                // Relación con Material
+                entity.HasOne(e => e.Material)
+                    .WithMany()
+                    .HasForeignKey(e => e.MaterialID)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                // Índice único: un material solo puede tener una configuración activa
+                entity.HasIndex(e => new { e.MaterialID, e.Activo })
+                    .HasDatabaseName("IX_ConfigTolerancia_Material_Activo");
+            });
 
             // ================================================================
+            // ✅ FIN CONFIGURACIÓN CONTROL DE PESO
+            // ================================================================
+            // ================================================================
             // ✅ FIN DE LAS NUEVAS CONFIGURACIONES
-         
+
             // ================================================================
 
             // ✅ Datos semilla para proveedores
